@@ -1,0 +1,5 @@
+package enums;
+
+public enum FrameState {
+	MAIN_MENU, SYNC, ERROR, INFO, RENAME, LOADING, STATISTIC, RENAMEINFO, UPDATE
+}

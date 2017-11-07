@@ -1,7 +1,7 @@
 package enums;
 
 public enum ShowStatus {
-	INSEASON("OG", "In Season"), HIATUS("LS", "Hiatus"), ENDED("FN", "Ended"), NONE("","");
+	NONE("",""), INSEASON("OG", "In Season"), HIATUS("LS", "Hiatus"), ENDED("FN", "Ended");
 	private final String tag;
 	private final String string;
 	
@@ -14,7 +14,9 @@ public enum ShowStatus {
 		return tag;
 	}
 	
-	public String nameToString(){
+	@Override
+	public String toString(){
 		return string;
 	}
+	
 }

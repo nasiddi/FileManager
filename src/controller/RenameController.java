@@ -5,6 +5,7 @@ import java.util.Observable;
 
 import enums.FrameState;
 import enums.RenameNotification;
+import enums.SyncNotification;
 import logic.BatchRename;
 import model.RenameModel;
 import swingPanel.SwingRenameInfoPanel;
@@ -15,7 +16,7 @@ public class RenameController extends Controller {
 
 	private BatchRename batchRename;
 
-	public RenameController(MasterController masterController) {
+	RenameController(MasterController masterController) {
 		super(masterController);
 		// TODO Auto-generated constructor stub
 	}
@@ -34,7 +35,7 @@ public class RenameController extends Controller {
 				panel.reset();
 
 				try {
-					batchRename = new BatchRename(masterController.getFrameStateManager());
+					batchRename = new BatchRename(masterController.getFrameStateManager(), super.masterController.getInfoModel());
 					batchRename.run();
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -62,8 +63,9 @@ public class RenameController extends Controller {
 				Thread syncThread = new Thread(new Runnable() {
 					@Override
 					public void run() {
-						mC.sync();
-					}
+						reload();
+						mC.getFrameStateManager().requestFrameState(FrameState.SYNC);
+						mC.update(mC.getFrameStateManager().getCurrentScreen().getPanel(), SyncNotification.INIT);					}
 				});
 				syncThread.start();
 				break;

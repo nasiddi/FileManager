@@ -2,9 +2,9 @@ package controller;
 
 import java.util.Observable;
 
-public class InfoController extends Controller {
+class InfoController extends Controller {
 
-	public InfoController(MasterController masterController) {
+	InfoController(MasterController masterController) {
 		super(masterController);
 		// TODO Auto-generated constructor stub
 	}

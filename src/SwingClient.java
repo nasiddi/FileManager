@@ -1,18 +1,22 @@
 
+import java.util.ArrayList;
+
 import controller.FrameStateManager;
 import controller.MasterController;
 import enums.Constants;
 import gui.AssetLoader;
 import gui.ClientFrame;
 import gui.SwingFrame;
+import logic.InfoIO;
 import panel.SwingPanel;
 import screen.SwingScreen;
 
-public class SwingClient extends ClientFrame<SwingPanel> {
+class SwingClient extends ClientFrame<SwingPanel> {
 
-    public SwingClient() {
-    	new AssetLoader();
+
+	public SwingClient() {
     	new Constants();
+    	new AssetLoader();
         SwingFrame swingFrame = new SwingFrame("FileManager");
         SwingFrame frame = swingFrame;
 

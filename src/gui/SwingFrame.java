@@ -3,13 +3,14 @@ package gui;
 import java.awt.BorderLayout;
 import java.awt.Container;
 import java.awt.Dimension;
+import java.awt.Toolkit;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
 import javax.swing.JFrame;
 
+import enums.Constants;
 import panel.SwingPanel;
-import gui.AssetLoader;
 
 public class SwingFrame extends ClientFrame<SwingPanel> {
 
@@ -25,7 +26,8 @@ public class SwingFrame extends ClientFrame<SwingPanel> {
 				System.exit(0);
 			}
 		});
-		frame.setMinimumSize(new Dimension(800, 400));
+		frame.setMinimumSize(new Dimension(Constants.FRAMEWIDTH, Constants.FRAMEHEIGHT));
+		frame.setIconImage(Toolkit.getDefaultToolkit().getImage("assets/iconblue.png"));
 		frame.setResizable(false);
 		panel = frame.getContentPane();
 		panel.setLayout(new BorderLayout());

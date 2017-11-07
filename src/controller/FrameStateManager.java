@@ -2,6 +2,8 @@ package controller;
 
 
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.logging.Logger;
 
@@ -17,8 +19,8 @@ public class FrameStateManager<PanelType extends Panel, ScreenType extends Scree
     private FrameState frameState;
 
     private FrameType frame;
-
-    private Logger logger = Logger.getLogger("crazy_sepp");
+    public static final String ANSI_GREEN = "\u001B[32m";
+    public static final String ANSI_RESET = "\u001B[0m";
 
     /**
      * Create a new FrameStateManager
@@ -36,7 +38,7 @@ public class FrameStateManager<PanelType extends Panel, ScreenType extends Scree
      * @param frameState
      * @param screen
      */
-    public void addFrameState(FrameState frameState, ScreenType screen) {
+    void addFrameState(FrameState frameState, ScreenType screen) {
         screenList.put(frameState, screen);
     }
 
@@ -45,20 +47,20 @@ public class FrameStateManager<PanelType extends Panel, ScreenType extends Scree
      *
      * @param frameState
      */
-    public void requestFrameState(FrameState frameState) {
+    void requestFrameState(FrameState frameState) {
         if (getCurrentScreen() != null) {
             if (screenList.size() > 0) {
                 getCurrentScreen().removeObservers();
             } else {
                 throw new NullPointerException();
             }
-        }
+        } 
         setFrameState(frameState);
         getCurrentScreen().getPanel().reset();
         frame.requestActivePanel(getCurrentScreen().getPanel());
         frame.draw();
         getCurrentScreen().addObservers();
-        logger.info("Frame State: " + frameState.name() + " -> " + getCurrentScreen().getClass().getName());
+        System.out.println(ANSI_GREEN + "Frame State: " + new SimpleDateFormat("yyyy.MM.dd HH:mm:ss.SSS").format(new Date())+"\n"+frameState.name() + " -> " + getCurrentScreen().getClass().getName() + ANSI_RESET);
     }
 
     /**

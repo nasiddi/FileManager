@@ -2,7 +2,6 @@ package gui;
 
 public abstract class ClientFrame<PanelType> {
 
-    protected String name;
     private PanelType activePanel;
 
     /**
@@ -10,8 +9,8 @@ public abstract class ClientFrame<PanelType> {
      *
      * @param name
      */
-    public ClientFrame(String name) {
-        this.name = name;
+    ClientFrame(String name) {
+        
     }
     
     public ClientFrame(){
@@ -32,7 +31,7 @@ public abstract class ClientFrame<PanelType> {
      *
      * @return
      */
-    protected PanelType getActivePanel() {
+    protected PanelType getActivePanel() { // NO_UCD (unused code)
         return this.activePanel;
     }
 

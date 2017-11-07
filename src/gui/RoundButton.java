@@ -1,23 +1,23 @@
 package gui;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.border.BevelBorder;
+
+import enums.Constants;
 
 public class RoundButton extends JButton {
 	
 	private Color color;
 	public RoundButton(String text){
 		super(text);
-		this.setFont(this.getFont().deriveFont(30f));
+		this.setFont(Constants.BIGFONT.deriveFont(40));
 		color = new Color(255,255,255,70);
+		setBackground(color);
 		this.setOpaque(false);
 		this.setBorderPainted(false);
 		this.setAlignmentX(CENTER_ALIGNMENT);
@@ -53,7 +53,7 @@ public class RoundButton extends JButton {
 	    int y = 0;
 	    int w = (int) this.getMinimumSize().getWidth();
 	    int h = (int) this.getMinimumSize().getHeight();
-	    int arc = 10;
+	    int arc = 20;
 	    Graphics2D g2 = (Graphics2D) g.create();
 	    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
 	            RenderingHints.VALUE_ANTIALIAS_ON);

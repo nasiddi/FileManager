@@ -1,9 +1,9 @@
-package logic;
+package model;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
-
-import javax.annotation.Generated;
+import enums.Constants;
 
 public class Episode {
 
@@ -19,71 +19,95 @@ public class Episode {
 	private String fileName;
 	private Episode previous;
 	private Episode after;
-	private ArrayList<File> fileList;
+	private ArrayList<File> fileList = new ArrayList<File>();
 
 	public Episode(File local, String seriesName, boolean isMulti, String episodeName, int seasonNR, int episodeNR) {
-		fileName = local.getName();
 		this.setLocal(local);
 		this.seriesName = seriesName;
 		this.isMulti = isMulti;
 		this.seasonNR = seasonNR;
 		this.episodeName = episodeName;
 		this.episodeNR = episodeNR;
+		fileName = getCompiledFileNameWithoutExtention() + local.getName().substring(local.getName().lastIndexOf("."));
+		
 		this.fileFormat = fileName.substring(fileName.lastIndexOf("."));
 	}
-	
-	public Episode(String seriesName, int seasonNR, int episodeNR, String episodeName){
+
+	Episode(String seriesName, int seasonNR, int episodeNR, String episodeName) {
 		this.seriesName = seriesName;
 		this.seasonNR = seasonNR;
 		this.episodeNR = episodeNR;
 		this.episodeName = episodeName;
-		fileList = new ArrayList<File>();
 	}
 
-	public Episode(File location, String seriesName, int seasonNR) {
-		this.setPrevious(previous);
-		fileName = location.getName();
+	Episode(File location, String seriesName, int seasonNR) {
 		this.location = location;
+		fileName = location.getName();
 		this.seriesName = seriesName;
 		this.seasonNR = seasonNR;
-		isAnime = false;
+		isAnime = (location.getAbsolutePath().contains("Anime")) ? true : false;
 
 		setEpisodeNRFromFile();
-		this.fileFormat = fileName.substring(fileName.lastIndexOf("."));
+		try {
+			this.fileFormat = fileName.substring(fileName.lastIndexOf("."));
+		} catch (StringIndexOutOfBoundsException e) {
+			fileFormat = "";
+		}
 		setEpisodeNameFromFile();
 		checkForTwoParter(fileName);
 		setPrevious(new Episode());
 		setAfter(new Episode());
+
+		createTreeFile();
 	}
-	
-	public Episode(){
+
+	private void createTreeFile() {
+		String folder = (location.getAbsolutePath().contains("Anime")) ? "/Anime/" : "/Series/";
+
+		File f = new File(Constants.TESTTREE + folder + seriesName + "/Season " + getSeasonNRasString() + "/"
+				+ location.getName());
+		if (f.exists())
+			return;
+		f.getParentFile().mkdirs();
+		try {
+			f.createNewFile();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+
+	/*
+	 * NullEpisode
+	 */
+	public Episode() {
 		seasonNR = 1;
-		seriesName = "nullEpisode";
+		seriesName = Constants.NULLEPISODE;
 		episodeNR = 0;
-		episodeName = "nullEpisode";
-		fileFormat = "nullEpisode";
+		episodeName = Constants.NULLEPISODE;
+		fileFormat = Constants.NULLEPISODE;
 		isMulti = false;
 		isAnime = false;
-		fileName = "nullEpisode";
+		fileName = Constants.NULLEPISODE;
 		previous = new Episode(0);
 		after = new Episode(0);
-		
+
 	}
-	
-	public Episode(int i){
+
+	private Episode(int i) {
 		seasonNR = 1;
-		seriesName = "nullEpisode";
+		seriesName = Constants.NULLEPISODE;
 		episodeNR = 0;
-		episodeName = "nullEpisode";
-		fileFormat = "nullEpisode";
+		episodeName = Constants.NULLEPISODE;
+		fileFormat = Constants.NULLEPISODE;
 		isMulti = false;
 		isAnime = false;
-		fileName = "nullEpisode";
-		
-		
+		fileName = Constants.NULLEPISODE;
+
 	}
-	
-	public String getNumberAndName(){
+
+	public String getNumberAndName() {
 		return getEpisodeNRasString() + " - " + episodeName;
 	}
 
@@ -136,26 +160,26 @@ public class Episode {
 	public void setSeriesName(String seriesName) {
 		this.seriesName = seriesName;
 	}
-	
-	public String getCompiledFileNameWithoutExtention(){
+
+	public String getCompiledFileNameWithoutExtention() {
 		return getSeriesNameAnd01x01() + " - " + episodeName;
 	}
-	
-	public String getSeriesNameAnd01x01(){
-		return seriesName + " " + getSeasonNRasString() + "x" + getEpisodeNRasString() + ((isMulti) ? " & " +getSeasonNRasString()+"x"+getMultiNRasString():"");
+
+	public String getSeriesNameAnd01x01() {
+		return seriesName + " " + getSeasonNRasString() + "x" + getEpisodeNRasString()
+				+ ((isMulti) ? " & " + getSeasonNRasString() + "x" + getMultiNRasString() : "");
 	}
 
-	public void setEpisodeNRFromFile() {
-		String s = (fileName.substring(seriesName.length() + 4, seriesName.length() + 7));
-		if (!checkForInt(s.substring(2)))
-			s = s.substring(0, 2);
-		else
-			isAnime = true;
-		try{
-		episodeNR = Integer.parseInt(s);
-		}catch(NumberFormatException e){
-			episodeNR = 99;
+	private void setEpisodeNRFromFile() {
+		String s = "";
+		try {
+			int x = fileName.indexOf('x', seriesName.length());
+			s = (fileName.substring(x+1, (x + ((isAnime) ? 4 : 3))));
+			episodeNR = Integer.parseInt(s);
+		} catch (Exception e) {
+			episodeNR = (isAnime)? 999:99;
 		}
+
 	}
 
 	public void setEpisdoeName(String episdoeName) {
@@ -184,9 +208,9 @@ public class Episode {
 		return isMulti;
 	}
 
-	public void setEpisodeNameFromFile() {
+	private void setEpisodeNameFromFile() {
 		if (seriesName.length() + 7 < fileName.lastIndexOf("."))
-			this.episodeName = fileName.substring(fileName.indexOf("-", seriesName.length())+2,
+			this.episodeName = fileName.substring(fileName.indexOf("-", seriesName.length()) + 2,
 					fileName.lastIndexOf("."));
 	}
 
@@ -202,13 +226,14 @@ public class Episode {
 		this.local = local;
 	}
 
-	public void addFile(File file){
+	public void addFile(File file) {
 		fileList.add(file);
 	}
-	
-	public ArrayList<File> getFileList(){
+
+	public ArrayList<File> getFileList() {
 		return fileList;
 	}
+
 	public int getSeasonNR() {
 		return seasonNR;
 	}
@@ -251,22 +276,34 @@ public class Episode {
 		if (episodeNR < 10) {
 			return "0" + episodeNR;
 		}
-		
+
 		return "" + episodeNR;
 	}
-	
+
 	public String getMultiNRasString() {
-		int multiNR = episodeNR+1;
+		int multiNR = episodeNR + 1;
 		if (isAnime) {
 			if (multiNR < 10)
 				return "00" + multiNR;
 			if (multiNR < 100)
 				return "0" + multiNR;
 		}
-		if (multiNR < 10) 
+		if (multiNR < 10)
 			return "0" + multiNR;
-		
+
 		return "" + multiNR;
+	}
+
+	public int getSeasonNRFromFile() {
+		int s = (isAnime)?999:99;
+		int x = -1;
+		try {
+			x = fileName.indexOf('x', seriesName.length());
+			String st = (fileName.substring(x-2, x));
+			s = Integer.parseInt(st);
+		} catch (Exception e) {
+		}
+		return s;
 	}
 
 	public String getSeasonNRasString() {
@@ -282,5 +319,15 @@ public class Episode {
 
 	public void setAnime(boolean isAnime) {
 		this.isAnime = isAnime;
+	}
+
+	public boolean fileExists() {
+		return location != null;
+	}
+
+	void renameFile(String name) {
+		location.renameTo(new File(location.getParentFile() + "/" + name));
+		reloadData();
+
 	}
 }

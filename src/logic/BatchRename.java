@@ -5,93 +5,146 @@ import static java.nio.file.Paths.get;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.naming.spi.StateFactory;
-
 import controller.FrameStateManager;
 import enums.Constants;
-import gui.StatFrame;
+import model.Episode;
+import model.InfoModel;
 import model.RenameModel;
+import model.Season;
+import model.Series;
 
 public class BatchRename {
 
 	private String[] episodes;
 	private File[] show;
 	private int numberOfSeasons;
-	private RenameModel model;
+	private RenameModel renameModel;
 	private String seriesName;
 	private String separationSymbols;
 	private String statusTag;
 	private HashMap<Integer, Season> episodeList;
 	private HashMap<Integer, String> overview;
 	private ArrayList<File> seasonFolders;
+	private HashMap<String, Series> series;
+	private boolean seriesOnServer;
 
 	@SuppressWarnings("rawtypes")
-	public BatchRename(FrameStateManager frameStateManager) throws IOException {
-		model = (RenameModel) frameStateManager.getCurrentScreen().getModel();
-		overview = new HashMap<Integer, String>();
+	public BatchRename(FrameStateManager frameStateManager, InfoModel infoModel) throws IOException {
+		renameModel = (RenameModel) frameStateManager.getCurrentScreen().getModel();
+		series = infoModel.getSeries();
 	}
 
 	public void run() throws IOException {
-		seriesName = model.getSeriesName();
-		separationSymbols = model.getSeparationSymbols();
-		statusTag = model.getStatusTag();
+		seriesName = renameModel.getSeriesName();
+		separationSymbols = renameModel.getSeparationSymbols();
+		statusTag = renameModel.getStatusTag();
+		episodeList = new HashMap<>();
+		overview = new HashMap<>();
+		seriesOnServer = false;
+		
 		Thread renameThread = new Thread(new Runnable() {
 			@Override
 			public void run() {
-				addFolderNameToFileName();
+				try {
+					addFolderNameToFileName();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 		});
-		renameThread.start();		
+		renameThread.start();
 		try {
 			renameThread.join();
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		if(!loadFiles())
+		if (!loadFiles())
 			return;
-		prepareNames();
+
+		if (seriesOnServer)
+			prepareNamesFromServer();
+		else
+			prepareNamesFromFile();
+
+		numberOfSeasons = Collections.max(episodeList.keySet());
 		findMatches();
 		renameFiles();
-		model.setRenameOverview(sortData(overview));
+		renameModel.setRenameOverview(sortData(overview));
 
 	}
 
-	public boolean loadFiles() throws IOException {
-		
-		String sh = ("/Users/nadina/Desktop/" + seriesName + ".txt");
+	private void prepareNamesFromServer() {
+		ArrayList<Season> seasons = series.get(seriesName).getSeasons();
+		for (Season s : seasons) {
+			int seasonNR = s.getSeasonNR();
+			for (Episode e : s.getEpisodesAsSortedList()) {
+				if (!episodeList.containsKey(seasonNR))
+					episodeList.put(seasonNR, new Season(seriesName, seasonNR));
+				String eName = e.getEpisodeName();
+				String[] names = eName.split("( & )");
+				if (e.getIsMulti()) {
+					if (eName.contains("&")) 
+						episodeList.get(seasonNR).addEpisode(e.getEpisodeNR() + 1, names[1]);
+					else
+						episodeList.get(seasonNR).addEpisode(e.getEpisodeNR()+1, names[0]);
+				}
+				episodeList.get(seasonNR).addEpisode(e.getEpisodeNR(), names[0]);
+			}
+		}
+	}
+
+	private boolean loadFiles() throws IOException {
+
+		String sh = (Constants.PREPDIR + "/" + seriesName + ".txt");
 		String s = "";
 
-		File file = null;
+		File file = new File(Constants.PREPDIR + "/" + seriesName);
+
+		if (!file.exists()) {
+			renameModel.setStatusText("Folder not found");
+			return false;
+		}
+
+		show = file.listFiles();
+
+		Arrays.sort(show);
+
 		try {
 			s = new String(readAllBytes(get(sh)));
-			file = new File("/Users/nadina/Desktop/" + seriesName);
-			show = file.listFiles();
-			Arrays.sort(show);
-		} catch (NoSuchFileException ex ) {
-			model.setStatusText("Name not correct");
+
+		} catch (NoSuchFileException ex) {
+			if (series.containsKey(seriesName)) {
+				seriesOnServer = true;
+				return seriesOnServer;
+			}
+
+			renameModel.setStatusText("Name not correct");
 			return false;
-			
+
 		}
 		episodes = s.split("[\\r\\n]+");
 		return true;
 	}
 
-	private void prepareNames() {
-		episodeList = new HashMap<Integer, Season>();
+	private void prepareNamesFromFile() {
 		for (String e : episodes) {
-			e = e.replaceAll("[\\s]", " ");
+			e = e.replaceAll("\u00C2", "");
+			e = e.trim();
 			if (e.indexOf(".") == 1) {
 				e = "0" + e;
 			}
@@ -117,7 +170,6 @@ public class BatchRename {
 				episodeList.put(seasonNR, new Season(seriesName, seasonNR));
 			episodeList.get(seasonNR).addEpisode(episodeNR, e.substring(6));
 		}
-		numberOfSeasons = Collections.max(episodeList.keySet());
 	}
 
 	private void findMatches() {
@@ -164,20 +216,20 @@ public class BatchRename {
 		}
 
 	}
-	
-	public void addFolderNameToFileName(){
+
+	private void addFolderNameToFileName() {
 		try {
-			System.out.println(loadFiles());
+			loadFiles();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		for(File f : show){
-			if(f.isDirectory()){
+		for (File f : show) {
+			if (f.isDirectory()) {
 				File[] files = f.listFiles();
-				for(File file : files){
-					if(Constants.EXTENSIONS.contains(file.getName().substring(file.getName().lastIndexOf(".")))&&!( file.getName().contains("ample") || file.getName().contains("AMPLE")))
-					file.renameTo(new File(f.getParent()+"/"+f.getName()+file.getName()));
+				for (File file : files) {
+					if (!(file.getName().contains("ample") || file.getName().contains("AMPLE")))
+						file.renameTo(new File(f.getParent() + "/" + f.getName() + file.getName()));
 				}
 				f.delete();
 			}
@@ -191,23 +243,29 @@ public class BatchRename {
 		for (Season s : seasons) {
 			flatenedList.addAll(s.getEpisdoes().values());
 		}
-		model.setRenameSuccessful(true);
+		renameModel.setRenameSuccessful(true);
 		for (Episode e : flatenedList) {
 			for (File f : e.getFileList()) {
+
 				int sn = e.getSeasonNR();
 				String ext = f.getName().substring(f.getName().lastIndexOf("."));
+				ArrayList<String> videoExt = InfoIO.loadInfoFile(Constants.EXTENTIONS);
+				if (!videoExt.contains(ext) && !Constants.SUB_EXTENSIONS.contains(ext)) {
+					continue;
+				}
+
 				File name;
-				if (ext.equals(".sub") || ext.equals(".idx") || ext.equals(".srt")) {
-					name = new File("/Users/nadina/Series/" + e.getCompiledFileNameWithoutExtention() + ext);
+				if (Constants.SUB_EXTENSIONS.contains(ext)) {
+					name = new File(Constants.LOCALDIR + "/" + e.getCompiledFileNameWithoutExtention() + ext);
 					sn *= 10;
 				} else {
-					name = new File("/Users/nadina/Desktop/" + seriesName + "/Season " + e.getSeasonNRasString() + "/"
+					name = new File(Constants.PREPDIR + "/" + seriesName + "/Season " + e.getSeasonNRasString() + "/"
 							+ e.getCompiledFileNameWithoutExtention() + ext);
 				}
 
-				if (model.getRenameConfirmed()) {
+				if (renameModel.getRenameConfirmed()) {
 					if (!f.renameTo(name)) {
-						model.setRenameSuccessful(false);
+						renameModel.setRenameSuccessful(false);
 					}
 				} else {
 					overview.put(sn * 100 + e.getEpisodeNR(),
@@ -219,20 +277,28 @@ public class BatchRename {
 	}
 
 	private void cleanUpAndMoveFiles() {
-		File folder = new File("/Users/nadina/Series/" + statusTag + " " + seriesName);
-		if(!folder.mkdir()){
-			model.setStatusText("Clean Up Failed");
+		File folder = new File(Constants.LOCALDIR + "/" + statusTag + " " + seriesName);
+		if (!folder.mkdir()) {
+			renameModel.setStatusText("Clean Up Failed");
 			return;
 		}
 		try {
-			for(File sf : seasonFolders)
-			sf.renameTo(new File(folder+"/"+sf.getName()));
+			for (File sf : seasonFolders)
+				sf.renameTo(new File(folder + "/" + sf.getName()));
 		} catch (Exception e) {
-			model.setRenameSuccessful(false);
+			renameModel.setRenameSuccessful(false);
 			e.printStackTrace();
 		}
-		new File("/Users/nadina/Desktop/" + seriesName + ".txt").delete();
-		new File("/Users/nadina/Desktop/" + seriesName).deleteOnExit();
+		new File(Constants.PREPDIR + "/" + seriesName + ".txt").delete();
+
+		Path rootPath = Paths.get(Constants.PREPDIR + "/" + seriesName);
+		try {
+			Files.walk(rootPath, FileVisitOption.FOLLOW_LINKS).sorted(Comparator.reverseOrder()).map(Path::toFile)
+					.forEach(File::delete);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	private int renameForTwoParter(int unmatched, File ep, Episode e) {
@@ -278,11 +344,11 @@ public class BatchRename {
 		return data;
 	}
 
-	private void generateFolders() throws Exception {
-		seasonFolders = new ArrayList<File>();
+	private void generateFolders() {
+		seasonFolders = new ArrayList<>();
 		for (int a = 1; a <= numberOfSeasons; a++) {
 			String nr = smallNR(a);
-			File folder = new File("/Users/nadina/Desktop/" + seriesName + "/" + "Season " + nr);
+			File folder = new File(Constants.PREPDIR + "/" + seriesName + "/" + "Season " + nr);
 			folder.mkdir();
 			seasonFolders.add(folder);
 		}
@@ -295,7 +361,7 @@ public class BatchRename {
 			e.printStackTrace();
 		}
 		renameFiles();
-		if (model.getRenameSuccessful())
+		if (renameModel.getRenameSuccessful())
 			cleanUpAndMoveFiles();
 	}
 

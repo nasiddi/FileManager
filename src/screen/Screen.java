@@ -24,7 +24,7 @@ public abstract class Screen<PanelType extends Panel, ModelType extends Model, C
      * @param model
      * @param controller
      */
-    public Screen(PanelType panel, ModelType model, ControllerType controller) {
+    Screen(PanelType panel, ModelType model, ControllerType controller) {
         this.panel = panel;
         this.model = model;
         this.controller = controller;

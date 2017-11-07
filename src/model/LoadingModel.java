@@ -9,7 +9,6 @@ public class LoadingModel extends Model {
 
 	public LoadingModel() {
 		setStatusText("Status");
-		setShowText("Current Show");
 	}
 	
 	public void clearStatusLable(){
@@ -25,12 +24,6 @@ public class LoadingModel extends Model {
 		notifyObservers(LoadingNotification.UPDATE);
 	}
 
-	public void setShowText(String showText) {
-		this.showText = showText;
-		setChanged();
-		notifyObservers(LoadingNotification.UPDATE);
-	}
-	
 	public String getStatusText() {
 		return statusText;
 	}
@@ -44,7 +37,9 @@ public class LoadingModel extends Model {
 		showText = "";
 		setChanged();
 		notifyObservers(LoadingNotification.ERROR);
+
 	}
+	
 
 	@Override
 	public void reset() {

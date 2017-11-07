@@ -1,46 +1,37 @@
 package model;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 
 import enums.Constants;
-import enums.DataType;
 import enums.ErrorNotification;
 import enums.SyncNotification;
-import logic.InfoLoader;
-import logic.Series;
+import gui.ShortsFrame;
+import logic.InfoIO;
 
 public class InfoModel extends Model {
-	HashMap<String, Series> series;
+	private HashMap<String, Series> series;
 	private String statusText;
 	private String showText;
-	private String percent;
+	private String progress;
 	private String[] errorNames;
 	private boolean isNewWord;
 	private String errorMessage;
 	private ArrayList<ErrorNotification> actions;
 	private String syncOverview;
+	private ArrayList<ShowInfoFields> showFieldList;
+	private int totalProgress;
+	private int prog;
+	private ShortsFrame shortsFrame;
+	private boolean filesLoaded;
 
-	public InfoModel() {
+	public InfoModel(ShortsFrame shortsFrame) {
 		setStatusText("");
 		setShowText("");
-		actions = new ArrayList<ErrorNotification>();
-	}
-
-	public void clearStatusLable() {
-		statusText = "";
-		showText = "";
-		setChanged();
-		notifyObservers(ErrorNotification.UPDATE);
-		notifyObservers(SyncNotification.UPDATE);
+		actions = new ArrayList<>();
+		this.shortsFrame = shortsFrame;
 	}
 
 	public void setStatusText(String statusText) {
@@ -57,11 +48,15 @@ public class InfoModel extends Model {
 		notifyObservers(SyncNotification.UPDATE);
 	}
 
-	public void setProgress(int percent) {
-		this.percent = percent + "%";
+	public void adjustProgress() {
+		this.progress = ++prog +"/"+ totalProgress;
 		setChanged();
 		notifyObservers(SyncNotification.UPDATE);
 
+	}
+	public void setTotalProgress(int totalProgress){
+		prog = 0;
+		this.totalProgress = totalProgress;
 	}
 
 	public void errorFound(String errorMessage, String[] names) {
@@ -97,7 +92,7 @@ public class InfoModel extends Model {
 		this.isNewWord = isNewWord;
 	}
 
-	public void addAction(ErrorNotification notification) {
+	private void addAction(ErrorNotification notification) {
 		actions.add(notification);
 	}
 
@@ -105,12 +100,12 @@ public class InfoModel extends Model {
 		return actions;
 	}
 
-	public void clearActions() {
+	private void clearActions() {
 		actions.clear();
 	}
 
 	public String getProgress() {
-		return percent;
+		return progress;
 	}
 
 	public String getStatusText() {
@@ -165,51 +160,31 @@ public class InfoModel extends Model {
 	}
 
 	
-
-	
-
-	public HashMap<String, Series> getNewEpisodeNames() {
-		return InfoLoader.loadNamesInHashMap();
-	}
-
 	@Override
 	public void reset() {
-		// TODO Auto-generated method stub
 
 	}
 
-	public void clearError() {
-		clearActions();
-		for (int i = 0; i < 3; i++) {
-			errorNames[i] = "";
-		}
+
+	public void setShowFieldList(ArrayList<ShowInfoFields> showFieldList) {
+		this.showFieldList = showFieldList;
+	}
+	
+	public ArrayList<ShowInfoFields> getShowFieldList(){
+		return showFieldList;
+	}
+	
+	public void reloadShortsFrame(){
+		shortsFrame.initTable();
 	}
 
-	public void saveNameChanges(ArrayList<String> newNames) {
-		File file = new File("/Users/nadina/Dropbox/Stuff/Files/names.txt");
-
-		File temp;
-		try {
-			temp = File.createTempFile("file", ".txt", file.getParentFile());
-
-			String charset = "UTF-8";
-
-			PrintWriter writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(temp), charset));
-			for (String s : newNames) {
-				writer.println(s);
-				System.out.println(s);
-
-			}
-
-			writer.close();
-
-			file.delete();
-
-			temp.renameTo(file);
-
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+	public void setFilesLoaded(boolean filesLoaded) {
+		this.filesLoaded = filesLoaded;
+		
+	}
+	
+	public boolean areFilesLoaded(){
+		return filesLoaded;
 	}
 
 }

@@ -8,17 +8,16 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 
-import controller.FrameStateManager;
 import enums.Constants;
 import enums.ErrorNotification;
+import model.Episode;
 import model.InfoModel;
+import model.Season;
+import model.Series;
 
-public class ErrorSearch extends Thread {
+public class ErrorSearch extends Thread { // NO_UCD (unused code)
 
 	private static final String[] exceptions = { "AM", "PM", "Christmas Special", "Compilation Episode",
 			"Compilation Show", "The Unseen Bits", "Preliminary Peril", "Meeting", "Truth" };
@@ -34,11 +33,11 @@ public class ErrorSearch extends Thread {
 	private static final String[] SMALLCAPS = { "A", "An", "And", "As", "At", "By", "For", "From", "If", "In", "Into",
 			"Of", "On", "Or", "The", "To", "Too", "Und", "Unto", "V.", "Vs.", "With" };
 
-	public ErrorSearch(FrameStateManager<?, ?, ?> frameStateManager) {
+	public ErrorSearch(InfoModel model) {
 		clone = new ArrayList<String>();
-		model = (InfoModel) frameStateManager.getCurrentScreen().getModel();
 		series = model.getSeriesAsSortedList();
 		seriesAsMap = model.getSeries();
+		this.model = model;
 		names = new ArrayList<String>();
 		dictionary = new ArrayList<String>();
 		try {
@@ -50,8 +49,7 @@ public class ErrorSearch extends Thread {
 	}
 
 	private void loadDictionary() throws FileNotFoundException, IOException {
-		BufferedReader br = new BufferedReader(
-				new FileReader("/Users/nadina/Documents/workspace/Files/dictionary.txt"));
+		BufferedReader br = new BufferedReader(new FileReader(Constants.DICTIONARYFILE));
 		String line;
 		while ((line = br.readLine()) != null) {
 			dictionary.add(line);
@@ -68,12 +66,15 @@ public class ErrorSearch extends Thread {
 	}
 
 	private void loopThroughSeries(ArrayList<Series> ser) {
-		
+
 		for (seriesNR = 0; seriesNR < ser.size(); seriesNR++) {
 			names.clear();
-			currentShow = ser.get(seriesNR).getSeriesName();
+			Series show = ser.get(seriesNR);
+			currentShow = show.getSeriesName();
+			if (currentShow.equals("New Series"))
+				continue;
 			model.setShowText(currentShow);
-			loopThroughSeasons(ser.get(seriesNR));
+			loopThroughSeasons(show);
 		}
 	}
 
@@ -87,12 +88,12 @@ public class ErrorSearch extends Thread {
 				continue;
 			}
 
-			loopThroughEpisodes(season);
+			loopThroughEpisodes(season, currentShow);
 
 		}
 	}
 
-	private void loopThroughEpisodes(Season season) {
+	private void loopThroughEpisodes(Season season, Series currentShow) {
 		int namesStartIndex = names.size();
 		int start = 0;
 		boolean seasonOK = false;
@@ -107,6 +108,19 @@ public class ErrorSearch extends Thread {
 
 			ArrayList<Episode> episodes = season.getEpisodesAsSortedList();
 			for (Episode e : episodes) {
+
+				if (!e.fileExists()) {
+					if (e.getEpisodeNR() == 0 || e.getPrevious().getIsMulti())
+						continue;
+					Episode lastFile = currentShow.getLastExistingFile();
+					if (e.getEpisodeNR()+e.getSeasonNR()*100 > lastFile.getEpisodeNR()+lastFile.getSeasonNR()*100) {
+						seasonOK = true;
+						break;
+					} else {
+						displayError(e, "File for " + e.getCompiledFileNameWithoutExtention() + " missing", null);
+						break;
+					}
+				}
 				if (e.equals(episodes.get(0))) {
 					start = e.getEpisodeNR();
 					if (start > 1) {
@@ -164,6 +178,7 @@ public class ErrorSearch extends Thread {
 		}
 		if (loops > 0)
 			seriesAsMap.get(season.getSeriesName()).getSeasons().set(season.getSeasonNR() - 1, season);
+
 	}
 
 	private boolean checkSeriesName(Episode e) {
@@ -179,6 +194,10 @@ public class ErrorSearch extends Thread {
 
 	private boolean checkIfNameIsCorrect(Episode episode) throws IOException {
 		String name = episode.getFileName().substring(0, episode.getFileName().lastIndexOf("."));
+		if(name.contains("\u00A0")){
+			System.out.println(name);
+		}
+			
 		name = name.replaceAll("[0-9][0-9]x[0-9]+", "::");
 		String cap = "";
 		if (name.equals(""))
@@ -189,18 +208,19 @@ public class ErrorSearch extends Thread {
 			boolean smallC = false;
 			boolean capOK = false;
 			for (String small : SMALLCAPS) {
-				if (words[i].equals(small)){
+				if (words[i].equals(small)) {
 					smallC = true;
 					capOK = true;
-					if( i != 0 && !(words[i - 1].equals("-") || words[i - 1].substring(words[i - 1].length() - 1).equals(".")
-								|| words[i - 1].substring(words[i - 1].length() - 1).equals("!")
-								|| words[i - 1].equals("&"))) {
-					capOK = false;
-					cap = words[i];
-					words[i] = words[i].toLowerCase();
-					break;
+					if (i != 0 && !(words[i - 1].equals("-")
+							|| words[i - 1].substring(words[i - 1].length() - 1).equals(".")
+							|| words[i - 1].substring(words[i - 1].length() - 1).equals("!")
+							|| words[i - 1].equals("&"))) {
+						capOK = false;
+						cap = words[i];
+						words[i] = words[i].toLowerCase();
+						break;
+					}
 				}
-			}
 			}
 			String w = words[i];
 			if (smallC)
@@ -230,8 +250,8 @@ public class ErrorSearch extends Thread {
 				File f = new File(episode.getLocation().getParent() + "/" + newName + episode.getFileFormat());
 				model.setIsNewWord(true);
 				boolean erf = false;
-				if(!capOK)
-				 erf = displayError(episode, errorMessage, (smallC) ? f : null);
+				if (!capOK)
+					erf = displayError(episode, errorMessage, (smallC) ? f : null);
 				if (!errorfound)
 					errorfound = erf;
 			}
@@ -242,8 +262,7 @@ public class ErrorSearch extends Thread {
 	}
 
 	public void addNewWord(String word) throws IOException {
-		BufferedWriter output = new BufferedWriter(
-				new FileWriter("/Users/nadina/Documents/workspace/Files/dictionary.txt", true));
+		BufferedWriter output = new BufferedWriter(new FileWriter(Constants.DICTIONARYFILE, true));
 		output.append(word + "\n");
 		dictionary.add(word);
 		output.close();
@@ -280,7 +299,7 @@ public class ErrorSearch extends Thread {
 			case CONTINUE:
 				break loop;
 			case DELETE_AFTER:
-				if(episode.getAfter().getEpisodeName().equals("nullEpisode"))
+				if (episode.getAfter().getEpisodeName().equals("nullEpisode"))
 					break;
 				episode.getAfter().getLocation().delete();
 				episode.getAfter().getAfter().setPrevious(episode);
@@ -288,7 +307,7 @@ public class ErrorSearch extends Thread {
 				errorCorrected = true;
 				break;
 			case DELETE_BEFORE:
-				if(episode.getPrevious().getEpisodeName().equals("nullEpisode"))
+				if (episode.getPrevious().getEpisodeName().equals("nullEpisode"))
 					break;
 				episode.getPrevious().getLocation().delete();
 				episode.getPrevious().getPrevious().setAfter(episode);
@@ -296,7 +315,7 @@ public class ErrorSearch extends Thread {
 				errorCorrected = true;
 				break;
 			case DELETE_CURRENT:
-				if(episode.getEpisodeName().equals("nullEpisode"))
+				if (episode.getEpisodeName().equals("nullEpisode"))
 					break;
 				episode.getLocation().delete();
 				episode.getAfter().setPrevious(episode.getPrevious());
@@ -310,7 +329,7 @@ public class ErrorSearch extends Thread {
 			case QUIT:
 				break;
 			case RENAME_AFTER:
-				if(episode.getAfter().getEpisodeName().equals("nullEpisode"))
+				if (episode.getAfter().getEpisodeName().equals("nullEpisode"))
 					break;
 				episode.getAfter().getLocation().renameTo(new File(episode.getAfter().getLocation().getParentFile()
 						+ "/" + model.getErrorNames()[Constants.AFTER]));
@@ -318,7 +337,7 @@ public class ErrorSearch extends Thread {
 				errorCorrected = true;
 				break;
 			case RENAME_BEFORE:
-				if(episode.getPrevious().getEpisodeName().equals("nullEpisode"))
+				if (episode.getPrevious().getEpisodeName().equals("nullEpisode"))
 					break;
 				episode.getPrevious().getLocation().renameTo(new File(
 						episode.getLocation().getParentFile() + "/" + model.getErrorNames()[Constants.BEFORE]));
@@ -326,7 +345,7 @@ public class ErrorSearch extends Thread {
 				errorCorrected = true;
 				break;
 			case RENAME_CURRENT:
-				if(episode.getEpisodeName().equals("nullEpisode"))
+				if (episode.getEpisodeName().equals("nullEpisode"))
 					break;
 				episode.getLocation().renameTo(new File(
 						episode.getLocation().getParentFile() + "/" + model.getErrorNames()[Constants.CURRENT]));
@@ -392,6 +411,8 @@ public class ErrorSearch extends Thread {
 	}
 
 	private boolean checkForNumberError(int start, int index, Episode episode) {
+		if (start == 0)
+			return false;
 		if (!(index == start)) {
 			String s = "Missing episode(s): " + episode.getSeasonNRasString() + "x" + ((start < 10) ? "0" : "") + start
 					+ ((index - start == 1) ? ""
@@ -461,7 +482,7 @@ public class ErrorSearch extends Thread {
 		for (String s : clone) {
 			multiCheck.remove(s);
 		}
-		File f = new File("/Users/nadina/Documents/workspace/Files/dictionary.txt");
+		File f = new File(Constants.DICTIONARYFILE);
 		f.delete();
 		try {
 			f.createNewFile();

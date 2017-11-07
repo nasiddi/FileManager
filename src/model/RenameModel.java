@@ -29,11 +29,6 @@ public class RenameModel extends Model {
 		statusTag = info[2];
 	}
 
-	public void resetEntryFields() {
-		seriesName = "Series Name";
-		separationSymbols = "Separation Symbols";
-	}
-
 	public String getSeriesName() {
 		return seriesName;
 	}

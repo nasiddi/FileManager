@@ -1,38 +1,42 @@
-package logic;
+package model;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.HashMap;
+
+import org.apache.commons.io.FileUtils;
 
 import enums.DataType;
 import enums.ShowStatus;
+import logic.InfoIO;
 
 public class Series {
 	private String seriesName;
-	private String premiere;
-	private String end;
+	private String premiere = "";
+	private String end = "";
+	private String shortName = "";
 	private int seasonCount;
-	private ShowStatus showStatus;
+	private ShowStatus showStatus = ShowStatus.NONE;
 	private File location;
 	private ArrayList<Season> seasons;
 	private int totalCount;
-	private boolean hasEpisodesWithoutName;
+	private boolean episodeNameNeeded;
+	private double folderSize;
+	private Episode firstNameFileEpisode;
 
-	public Series(String seriesName, String seasonCount, String hasEpisodesWithoutName) {
+	public Series(String seriesName, String shortName, String seasonCount, String episodeNameNeeded) {
 		showStatus = ShowStatus.NONE;
 		this.seriesName = seriesName;
 		this.seasonCount = Integer.parseInt(seasonCount);
+		this.shortName = shortName;
 
-		
-		this.hasEpisodesWithoutName = (hasEpisodesWithoutName.equals("%")) ? true : false;
+		this.episodeNameNeeded = (episodeNameNeeded.equals("Y")) ? true : false;
 		seasons = new ArrayList<Season>();
-		
+
 		seasons.add(new Season(seriesName, this.seasonCount));
 	}
 
@@ -45,25 +49,10 @@ public class Series {
 		setSeasonCount();
 		setTotalCount();
 		linkSeasons();
-		ArrayList<ArrayList<Episode>> sea = new ArrayList<ArrayList<Episode>>();
-		for (Season s : seasons)
-			sea.add(s.getEpisodesAsSortedList());
-
+		setFolderSize();
 	}
 
-	public Series(File location, String premiere, String end, int count, int seasons, ShowStatus showStatus) {
-		showStatus = ShowStatus.NONE;
-		this.seriesName = location.getName();
-		this.premiere = premiere;
-		this.end = end;
-		this.showStatus = showStatus;
-		this.location = location;
-		loadSeasons();
-		setSeasonCount();
-		linkSeasons();
-	}
-
-	public void loadSeasons() {
+	private void loadSeasons() {
 		File[] sea = location.listFiles(new FileFilter() {
 			public boolean accept(File file) {
 				return !file.isHidden() && (file.getName().startsWith("Season") || file.isFile());
@@ -74,15 +63,18 @@ public class Series {
 		else {
 			Arrays.sort(sea);
 			for (File s : sea) {
-
-				seasons.add(
-						new Season(s, seriesName, Integer.parseInt(s.getName().substring(s.getName().length() - 2))));
+				try {
+					seasons.add(new Season(s, seriesName,
+							Integer.parseInt(s.getName().substring(s.getName().length() - 2))));
+				} catch (NumberFormatException e) {
+					e.printStackTrace();
+				}
 			}
 		}
 
 	}
 
-	public void linkSeasons() {
+	private void linkSeasons() {
 		for (int i = 0; i < seasons.size() - 1; i++) {
 			Episode previous = new Episode();
 			Episode after = new Episode();
@@ -94,46 +86,10 @@ public class Series {
 				s1.getEpisodesAsSortedList().get(s1.getEpisodesAsSortedList().size() - 1).setAfter(after);
 				s2.getEpisodesAsSortedList().get(0).setPrevious(previous);
 			} catch (IndexOutOfBoundsException e) {
-				e.printStackTrace();
 
 			}
 
 		}
-	}
-
-	private void setLabel(ShowStatus showStatus) {
-		int label = 0;
-		switch (showStatus) {
-		case HIATUS:
-			label = 3;
-			break;
-		case ENDED:
-			label = 4;
-			break;
-		case INSEASON:
-			label = 6;
-			break;
-		default:
-			break;
-		}
-		String[] name = location.toString().split("/");
-		String path = "Mac HD";
-		for (String s : name) {
-			path += s + ":";
-		}
-		
-		try {
-			String[] cmd = { "osascript", "-e",
-					"tell application \"Finder\" to set label index of folder \"" + path + "\" to " + label };
-
-			Runtime.getRuntime().exec(cmd);
-
-		} catch (IOException e) {
-			System.out.println(e);
-		}
-		
-		
-		this.showStatus = showStatus;
 	}
 
 	public void setInfo(String[] info) {
@@ -141,9 +97,9 @@ public class Series {
 		end = info[2];
 		setShowStatusFromString(info[3]);
 	}
-	
-	public void changeStatusData(DataType type, String string){
-		switch(type){
+
+	public void changeStatusData(DataType type, String string) {
+		switch (type) {
 		case END:
 			end = string;
 			break;
@@ -165,11 +121,10 @@ public class Series {
 		default:
 			break;
 		}
-		
-		InfoLoader.updateStatusSheet(new String[]{seriesName, premiere, end, showStatus.nameToString()});
+
+		InfoIO.updateStatusSheet(new String[] { seriesName, premiere, end, showStatus.toString() });
 	}
 
-	
 	private void setShowStatusFromString(String status) {
 		ShowStatus old = showStatus;
 		switch (status) {
@@ -185,21 +140,48 @@ public class Series {
 		default:
 			showStatus = ShowStatus.NONE;
 		}
-		if (!old.equals(showStatus)){
-			setLabel(showStatus);
-			
-			if (showStatus.equals(ShowStatus.ENDED)) {
+		if (!old.equals(showStatus)) {
+			if (showStatus.equals(ShowStatus.ENDED) && end.equals("")) {
 				DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
 				Calendar cal = Calendar.getInstance();
 				cal.add(Calendar.DATE, -1);
 
 				end = (dateFormat.format(cal.getTime()));
 			}
-			
-			
+
 		}
 	}
-	
+
+	public void addNamesForNewEpisodes(Series s) {
+		shortName = s.getShort();
+		episodeNameNeeded = s.getEpisodeNameNeeded();
+
+		for (Season newSeason : s.getSeasons()) {
+			Season season = getSeason(newSeason.getSeasonNR());
+			if (season.getLocation() == null) {
+				seasons.add(newSeason);
+			}
+			for (Episode e : newSeason.getEpisodesAsSortedList()) {
+				if (season.getEpisdoes().containsKey(e.getEpisodeNR())) {
+					if (season.getEpisdoes().get(e.getEpisodeNR()).fileExists()) {
+						continue;
+					}
+				}
+				season.getEpisdoes().put(e.getEpisodeNR(), e);
+			}
+			season.linkEpisodes();
+		}
+		linkSeasons();
+	}
+
+	public Season getSeason(int nr) {
+		for (Season s : seasons) {
+			if (s.getSeasonNR() == nr)
+				return s;
+		}
+		return new Season(seriesName, nr);
+	}
+
 	public Season getCurrentSeason() {
 		return seasons.get(seasons.size() - 1);
 	}
@@ -208,8 +190,16 @@ public class Series {
 		return seriesName;
 	}
 
+	public void setPreiere(String premiere) {
+		this.premiere = premiere;
+	}
+
 	public String getPremiere() {
 		return premiere;
+	}
+
+	public void setEnd(String end) {
+		this.end = end;
 	}
 
 	public String getEnd() {
@@ -227,7 +217,6 @@ public class Series {
 	public ArrayList<Season> getSeasons() {
 		return seasons;
 	}
-
 
 	public void setLocation(File location) {
 		this.location = location;
@@ -249,7 +238,7 @@ public class Series {
 		return totalCount;
 	}
 
-	public void setTotalCount() {
+	private void setTotalCount() {
 		int c = 0;
 		for (Season s : seasons)
 			c += s.getEpisodeCount();
@@ -261,12 +250,47 @@ public class Series {
 		return s.getLastEpisode();
 	}
 
-	public boolean hasEpisodesWithoutName() {
-		return hasEpisodesWithoutName;
+	public boolean getEpisodeNameNeeded() {
+		return episodeNameNeeded;
 	}
 
 	public void setHasEpisodesWithoutName(boolean hasEpisodesWithoutName) {
-		this.hasEpisodesWithoutName = hasEpisodesWithoutName;
+		this.episodeNameNeeded = hasEpisodesWithoutName;
 	}
 
+	public String getShort() {
+		return shortName;
+	}
+
+	public void setShort(String shortName) {
+		this.shortName = shortName;
+	}
+
+	private void setFolderSize() {
+		double size = FileUtils.sizeOfDirectory(location);
+		folderSize = (int) ((size / (1024 * 1024 * 1024)) * 100) / 100.0;
+	}
+
+	public double getSizeOfFolder() {
+		return folderSize;
+	}
+
+	public Episode getLastExistingFile() {
+		for (int s = seasons.size() - 1; s >= 0; s--) {
+			ArrayList<Episode> episodes = seasons.get(s).getEpisodesAsSortedList();
+			for (int i = episodes.size() - 1; i >= 0; i--) {
+				if (episodes.get(i).fileExists())
+					return episodes.get(i);
+			}
+		}
+		return null;
+	}
+
+	public void setFirstNameFileEpisode(int episodeNR, int seasonNR, String episodeName) {
+		firstNameFileEpisode = new Episode(seriesName, seasonNR, episodeNR, episodeName);
+	}
+
+	public Episode getFirstNameFileEpisode() {
+		return firstNameFileEpisode;
+	}
 }

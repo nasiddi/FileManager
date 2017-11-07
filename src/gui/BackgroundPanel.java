@@ -30,22 +30,22 @@ public class BackgroundPanel extends JPanel {
 		panel.setSize(new Dimension(Constants.FRAMEWIDTH, Constants.FRAMEHEIGHT));
 		
 		statusPanel = new JPanel();
-		statusPanel.setSize(new Dimension(800, 70));
+		statusPanel.setSize(new Dimension(Constants.FRAMEWIDTH, Constants.FRAMEHEIGHT/5));
 		statusPanel.setLocation(0, 0);
 		statusPanel.setOpaque(true);
 		statusPanel.setBackground(panelColor);
 		statusPanel.setVisible(false);
 		
 		syncPanel = new JPanel();
-		syncPanel.setSize(new Dimension(800, 100));
+		syncPanel.setSize(new Dimension(Constants.FRAMEWIDTH, Constants.FRAMEHEIGHT/4));
 		syncPanel.setLocation(0, 0);
 		syncPanel.setOpaque(true);
 		syncPanel.setBackground(panelColor);
 		syncPanel.setVisible(false);
 		
 		errorPanel = new JPanel();
-		errorPanel.setSize(new Dimension(800, 250));
-		errorPanel.setLocation(0, 90);
+		errorPanel.setSize(new Dimension(Constants.FRAMEWIDTH, (int) (Constants.FRAMEHEIGHT/1.8)));
+		errorPanel.setLocation(0, (int) (Constants.FRAMEHEIGHT/4.4));
 		errorPanel.setOpaque(true);
 		errorPanel.setBackground(panelColor);
 		errorPanel.setVisible(false);
@@ -73,5 +73,11 @@ public class BackgroundPanel extends JPanel {
 	
 	public JPanel getPanel(){
 		return panel;
+	}
+	
+	public void update(){
+		bg = AssetLoader.getBackground();
+		this.revalidate();
+		this.repaint();
 	}
 }

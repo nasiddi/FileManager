@@ -1,7 +1,7 @@
 /**
  * Main Class to run the SwingClient
  */
-public class App {
+public class App { // NO_UCD (unused code)
     /*
      * Program initialization and start
      * gets the server address and port number as command line parameters

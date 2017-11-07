@@ -6,11 +6,9 @@ import java.util.Observable;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 import enums.MainNotification;
-import enums.SyncNotification;
 import gui.BackgroundPanel;
 import gui.RoundButton;
 import panel.MainPanel;
@@ -34,6 +32,7 @@ public class SwingMainPanel extends SwingPanel implements MainPanel {
 
 		panel.add(Box.createVerticalGlue());
 		RoundButton sync = new RoundButton("Sync");
+		sync.transferFocus();
 		RoundButton error = new RoundButton("Error Search");
 		RoundButton rename = new RoundButton("Batch Rename");
 		RoundButton reload = new RoundButton("Reload");

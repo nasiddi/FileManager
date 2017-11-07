@@ -1,4 +1,5 @@
 package gui;
+
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -7,24 +8,30 @@ import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 
+import enums.Constants;
 
 public class AssetLoader {
-	
-	public AssetLoader(){
+
+	public AssetLoader() {
 		loadBackGround();
 	}
-	
+
 	private static BufferedImage background;
 
-	public static JLabel getBackground(){
+	static JLabel getBackground() {
+		loadBackGround();
 		return packBufferedImageIntoJLabel(background);
 	}
-	
-	
-	public void loadBackGround(){
-		background = loadImage("assets/background.jpg");
+
+	public static void loadBackGround() {
+		if (new File(Constants.SERIESDIR).exists())
+			Constants.BACKGROUNDIMAGE = Constants.BACKGROUNDSTD;
+		else
+			Constants.BACKGROUNDIMAGE = Constants.BACKGROUNDCON;
+
+		background = loadImage(Constants.BACKGROUNDIMAGE);
 	}
-	
+
 	private static BufferedImage loadImage(String uri) {
 		try {
 			return ImageIO.read(new File(uri));
@@ -33,7 +40,7 @@ public class AssetLoader {
 		}
 		return null;
 	}
-	
+
 	private static JLabel packBufferedImageIntoJLabel(BufferedImage img) {
 		return new JLabel(new ImageIcon(img));
 	}

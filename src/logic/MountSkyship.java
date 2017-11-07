@@ -1,4 +1,5 @@
 package logic;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -6,17 +7,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-public class MountSkyship extends Thread{
+public class MountSkyship extends Thread {
+	private final static String volumes[] = { "BackUp", "Video", "Music", "Temp" };
 
 	public MountSkyship() {
 
-		String volumes[] = { "BackUp", "Video", "Music", "Temp" };
-
 		try {
 			for (String vol : volumes) {
-				if (checkConnection(vol)) {
+				if (!checkIfConnected(vol)) {
 					mount(vol);
-					checkConnection(vol);
+					checkIfConnected(vol);
 				}
 			}
 		} catch (InterruptedException e) {
@@ -25,7 +25,16 @@ public class MountSkyship extends Thread{
 
 	}
 
-	public void mount(String vol) throws InterruptedException {
+	public static boolean skyshipIsConnected() { // NO_UCD (unused code)
+		for (String vol : volumes) {
+			if (!checkIfConnected(vol)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private void mount(String vol) throws InterruptedException {
 		try {
 			Runtime.getRuntime().exec("/bin/mkdir /Volumes/" + vol);
 
@@ -47,11 +56,11 @@ public class MountSkyship extends Thread{
 		}
 	}
 
-	public boolean checkConnection(String vol) {
+	private static boolean checkIfConnected(String vol) {
 		File folder = new File("/Volumes/" + vol);
 		boolean empty = false;
-		if(!folder.exists())
-			return true;
+		if (!folder.exists())
+			return false;
 		try {
 			empty = isDirEmpty(Paths.get(folder.getPath()));
 		} catch (IOException e) {
@@ -60,10 +69,10 @@ public class MountSkyship extends Thread{
 		if (empty)
 			folder.delete();
 
-		return empty;
+		return !empty;
 	}
 
-	public static boolean isAlive(Process p) {
+	private static boolean isAlive(Process p) {
 		try {
 			p.exitValue();
 			return false;
@@ -75,7 +84,7 @@ public class MountSkyship extends Thread{
 	private static boolean isDirEmpty(final Path directory) throws IOException {
 		try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(directory)) {
 			return !dirStream.iterator().hasNext();
-		} 
+		}
 	}
 
 	public static void main(String[] args) {

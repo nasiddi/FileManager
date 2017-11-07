@@ -1,11 +1,9 @@
 package swingPanel;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.util.Observable;
 
 import javax.swing.Box;
@@ -15,9 +13,10 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
+import enums.Constants;
 import enums.LoadingNotification;
-import enums.RenameNotification;
 import gui.BackgroundPanel;
+import gui.NavButton;
 import model.LoadingModel;
 import panel.LoadingPanel;
 import panel.SwingPanel;
@@ -47,15 +46,16 @@ public class SwingLoadingPanel extends SwingPanel implements LoadingPanel{
 	
 	private void initStatusPanel(){
 		statusPanel.setOpaque(false);
-		statusPanel.setPreferredSize(new Dimension(800, 70));
+		statusPanel.setPreferredSize(new Dimension(Constants.FRAMEWIDTH, (int) (Constants.FRAMEHEIGHT/5.7)));
 		statusPanel.setLayout(new BoxLayout(statusPanel, BoxLayout.Y_AXIS));
 		statusLabel = new JLabel();
 		currentShow = new JLabel();
+		currentShow.setText("");
 		statusLabel.setOpaque(false);
 		currentShow.setOpaque(false);
-		statusLabel.setFont(new Font(statusLabel.getFont().getName(), Font.PLAIN, 28));
+		statusLabel.setFont(Constants.BIGFONT);
 		statusLabel.setAlignmentX(JLabel.CENTER_ALIGNMENT);
-		currentShow.setFont(new Font(statusLabel.getFont().getName(), Font.PLAIN, 20));
+		currentShow.setFont(Constants.SMALLFONT);
 		currentShow.setAlignmentX(Component.CENTER_ALIGNMENT);
 		
 		statusPanel.add(statusLabel);
@@ -66,16 +66,16 @@ public class SwingLoadingPanel extends SwingPanel implements LoadingPanel{
 	private void initButtonPanel(){
 		buttonPanel.setOpaque(false);
 		buttonPanel.setVisible(false);
-		buttonPanel.setPreferredSize(new Dimension(800, 100));
+		buttonPanel.setPreferredSize(new Dimension(Constants.FRAMEWIDTH, Constants.FRAMEHEIGHT/4));
 		buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.X_AXIS));
-		JButton retry = new JButton("Retry");
-		JButton menu = new JButton("Main Menu");
+		JButton retry = new NavButton("Retry");
+		JButton menu = new NavButton("Main Menu");
 		buttonPanel.add(Box.createHorizontalGlue());
 		
 		
 		retry.addActionListener(e -> {
 			setChanged();
-			notifyObservers(LoadingNotification.RETRY);
+			notifyObservers(LoadingNotification.INIT);
 		});
 		
 		menu.addActionListener(e -> {
@@ -119,7 +119,7 @@ public class SwingLoadingPanel extends SwingPanel implements LoadingPanel{
 
 	}
 
-	public void updateStatus(LoadingModel model) {
+	private void updateStatus(LoadingModel model) {
 		currentShow.setText(model.getShowText());
 		statusLabel.setText(model.getStatusText());
 		container.revalidate();

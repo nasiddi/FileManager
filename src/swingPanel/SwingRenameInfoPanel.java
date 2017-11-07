@@ -4,22 +4,21 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.event.ActionListener;
 import java.util.Observable;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.ScrollPaneConstants;
 
+import enums.Constants;
 import enums.RenameNotification;
 import gui.BackgroundPanel;
+import gui.NavButton;
 import model.RenameModel;
 import panel.RenameInfoPanel;
 import panel.SwingPanel;
@@ -34,8 +33,7 @@ public class SwingRenameInfoPanel extends SwingPanel implements RenameInfoPanel 
 	private JPanel renamePanel;
 	private JTextArea renameDataField;
 	private JPanel buttonPanel;
-	private JButton left;
-	private Component box;
+	private NavButton left;
 
 	public SwingRenameInfoPanel() {
 		container = new BackgroundPanel();
@@ -46,20 +44,19 @@ public class SwingRenameInfoPanel extends SwingPanel implements RenameInfoPanel 
 		panel.add(statusPanel);
 		initStatusPanel();
 		renamePanel = new JPanel();
-		panel.add(Box.createVerticalStrut(10));
 
-		box = Box.createVerticalStrut(250);
-		panel.add(box);
+		panel.add( Box.createVerticalStrut((int) (Constants.FRAMEHEIGHT/10)));
 		
 		panel.add(renamePanel);
 		renamePanel.setOpaque(false);
 		initRenamePanel();
+		panel.add(Box.createVerticalStrut(Constants.FRAMEHEIGHT/20));
 
 		JPanel flowButton = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
 		flowButton.setOpaque(false);
 		buttonPanel = new JPanel();
 		panel.add(flowButton);
-		panel.add(Box.createVerticalStrut(25));
+		panel.add(Box.createVerticalStrut(Constants.FRAMEHEIGHT/10));
 
 		flowButton.add(buttonPanel);
 		initButtonPanel();
@@ -69,16 +66,17 @@ public class SwingRenameInfoPanel extends SwingPanel implements RenameInfoPanel 
 	private void initButtonPanel() {
 		buttonPanel.setLayout(new FlowLayout(FlowLayout.CENTER));
 		buttonPanel.setOpaque(false);
-		buttonPanel.setPreferredSize(new Dimension(800, 30));
+		buttonPanel.setPreferredSize(new Dimension(Constants.FRAMEWIDTH, Constants.FRAMEHEIGHT/15));
 
-		left = new JButton("Confirm");
-		JButton right = new JButton("Quit");
+		left = new NavButton("Confirm");
+		NavButton right = new NavButton("Quit");
+		NavButton[] navs = new NavButton[2];
+		navs[0] = left;
+		navs[1] = right;
+		NavButton.evenButtonWidth(navs);
 
-		double width = Math.max(left.getMinimumSize().getWidth(), right.getMinimumSize().getWidth());
-
-		buttonPanel.add(adjustWidth(left, width));
-		buttonPanel.add(adjustWidth(right, width));
-
+		buttonPanel.add(left);
+		buttonPanel.add(right);
 		left.addActionListener(e -> {
 			setChanged();
 			notifyObservers(RenameNotification.CONFIRM_RENAME);
@@ -91,12 +89,6 @@ public class SwingRenameInfoPanel extends SwingPanel implements RenameInfoPanel 
 
 	}
 
-	private JComponent adjustWidth(JComponent component, double width) {
-		component.setMinimumSize(new Dimension((int) width, (int) component.getPreferredSize().getHeight()));
-		component.setPreferredSize(new Dimension((int) width, (int) component.getPreferredSize().getHeight()));
-		return component;
-	}
-
 	public void setOverview(String overview) {
 		renameDataField.setText(overview);
 		renameDataField.setCaretPosition(0);
@@ -104,10 +96,10 @@ public class SwingRenameInfoPanel extends SwingPanel implements RenameInfoPanel 
 
 	private void initRenamePanel() {
 		renameDataField = new JTextArea();
-
+		renameDataField.setFont(Constants.BOXFONT);
 		renameDataField.setEditable(false);
 		JScrollPane scroll = new JScrollPane(renameDataField);
-		scroll.setPreferredSize(new Dimension(760, 250));
+		scroll.setPreferredSize(new Dimension((int) (Constants.FRAMEWIDTH/1.05), (int) (Constants.FRAMEHEIGHT/1.7)));
 
 		scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
 		scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
@@ -121,15 +113,15 @@ public class SwingRenameInfoPanel extends SwingPanel implements RenameInfoPanel 
 	
 	private void initStatusPanel() {
 		statusPanel.setOpaque(false);
-		statusPanel.setPreferredSize(new Dimension(800, 70));
+		statusPanel.setPreferredSize(new Dimension(Constants.FRAMEWIDTH, (int) (Constants.FRAMEHEIGHT/5.7)));
 		statusPanel.setLayout(new BoxLayout(statusPanel, BoxLayout.Y_AXIS));
 		statusLabel = new JLabel("Batch Rename");
 		currentShow = new JLabel();
 		statusLabel.setOpaque(false);
 		currentShow.setOpaque(false);
-		statusLabel.setFont(new Font(statusLabel.getFont().getName(), Font.PLAIN, 28));
+		statusLabel.setFont(Constants.BIGFONT);
 		statusLabel.setAlignmentX(JLabel.CENTER_ALIGNMENT);
-		currentShow.setFont(new Font(statusLabel.getFont().getName(), Font.PLAIN, 20));
+		currentShow.setFont(Constants.SMALLFONT);
 		currentShow.setAlignmentX(Component.CENTER_ALIGNMENT);
 
 		statusPanel.add(statusLabel);
@@ -169,19 +161,18 @@ public class SwingRenameInfoPanel extends SwingPanel implements RenameInfoPanel 
 		for (ActionListener al : left.getActionListeners()) {
 			left.removeActionListener(al);
 		}
-		left.setText("Sync Now");
+		left.setText("Sync");
 		left.addActionListener(e -> {
 			setChanged();
 			notifyObservers(RenameNotification.SYNC);
 		});
 	}
 
-	public void updateStatus(RenameModel model) {
+	private void updateStatus(RenameModel model) {
 		statusLabel.setText(model.getStatusText());
 		currentShow.setText(model.getSeriesName());
 		if (model.getRenameOverview() != null &&  model.getRenameOverview().length() > 0){
 			renamePanel.setVisible(true);
-			box.setVisible(false);
 		}
 			setOverview(model.getRenameOverview());
 

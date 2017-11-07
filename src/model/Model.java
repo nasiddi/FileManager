@@ -11,4 +11,5 @@ public abstract class Model extends Observable {
     }
 
     public abstract void reset();
+
 }

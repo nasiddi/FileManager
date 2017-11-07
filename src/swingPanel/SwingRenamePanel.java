@@ -4,7 +4,6 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.util.Observable;
@@ -18,8 +17,10 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JTextField;
 
+import enums.Constants;
 import enums.RenameNotification;
 import gui.BackgroundPanel;
+import gui.NavButton;
 import panel.RenamePanel;
 import panel.SwingPanel;
 
@@ -54,7 +55,7 @@ public class SwingRenamePanel extends SwingPanel implements RenamePanel {
 		flowStatus.add(statusPanel);
 		initStatusPanel();
 
-		panel.add(Box.createVerticalStrut(20));
+		panel.add(Box.createVerticalStrut(Constants.FRAMEHEIGHT/25));
 
 		entryPanel = new JPanel();
 		panel.add(flowEntry);
@@ -66,7 +67,7 @@ public class SwingRenamePanel extends SwingPanel implements RenamePanel {
 		flowButton.add(buttonPanel);
 		initButtonPanel();
 
-		panel.add(Box.createVerticalStrut(30));
+		panel.add(Box.createVerticalStrut(Constants.FRAMEHEIGHT/14));
 		
 		
 		container.repaint();
@@ -76,10 +77,10 @@ public class SwingRenamePanel extends SwingPanel implements RenamePanel {
 	private void initButtonPanel() {
 		buttonPanel.setLayout(new FlowLayout(FlowLayout.CENTER));
 		buttonPanel.setOpaque(false);
-		buttonPanel.setPreferredSize(new Dimension(800, 30));
+		buttonPanel.setPreferredSize(new Dimension(Constants.FRAMEWIDTH, Constants.FRAMEHEIGHT/13));
 
-		JButton confirm = new JButton("Confirm");
-		JButton quit = new JButton("Quit");
+		JButton confirm = new NavButton("Confirm");
+		JButton quit = new NavButton("Quit");
 
 		double width = Math.max(confirm.getMinimumSize().getWidth(), quit.getMinimumSize().getWidth());
 
@@ -114,20 +115,20 @@ public class SwingRenamePanel extends SwingPanel implements RenamePanel {
 	}
 
 	private void initEntryPanel() {
-		entryPanel.setPreferredSize(new Dimension(800, 250));
+		entryPanel.setPreferredSize(new Dimension(Constants.FRAMEWIDTH, (int) (Constants.FRAMEHEIGHT/2)));
 		entryPanel.setOpaque(false);
 		entryPanel.setLayout(new BoxLayout(entryPanel, BoxLayout.Y_AXIS));
 
-		entryPanel.add(Box.createVerticalStrut(80));
+		entryPanel.add(Box.createVerticalStrut(Constants.FRAMEHEIGHT/5));
 		seriesName = new JTextField();
 		separationSymbol = new JTextField();
 		initTextField(seriesName, "Series Name");
-		initTextField(separationSymbol, "Separation Symbols");
+		initTextField(separationSymbol, "Seperation Symbols");
 		
 		seriesName.addFocusListener(new FocusAll());
 		separationSymbol.addFocusListener(new FocusAll());
 		initRadioButtons();
-		entryPanel.add(Box.createVerticalStrut(80));
+		entryPanel.add(Box.createVerticalStrut(Constants.FRAMEHEIGHT/5));
 		}
 
 	private void initRadioButtons() {
@@ -136,6 +137,13 @@ public class SwingRenamePanel extends SwingPanel implements RenamePanel {
 		JRadioButton ongoing = new JRadioButton("Ongoing");
 		JRadioButton hiatus = new JRadioButton("Hiatus");
 		JRadioButton ended = new JRadioButton("Ended");
+		ongoing.setOpaque(false);
+		hiatus.setOpaque(false);
+		ended.setOpaque(false);
+
+		ongoing.setFont(Constants.BOXFONT);
+		hiatus.setFont(Constants.BOXFONT);
+		ended.setFont(Constants.BOXFONT);
 		flowRadioPanel.add(ongoing);
 		flowRadioPanel.add(hiatus);
 		flowRadioPanel.add(ended);
@@ -163,7 +171,8 @@ public class SwingRenamePanel extends SwingPanel implements RenamePanel {
 	private void initTextField(JTextField textField, String name) {
 		JPanel flowTextField = new JPanel(new FlowLayout(FlowLayout.CENTER));
 		textField.setText(name);
-		adjustWidth(textField, 400);
+		textField.setFont(Constants.BOXFONT);
+		adjustWidth(textField, Constants.FRAMEHEIGHT);
 		flowTextField.add(textField);
 		flowTextField.setOpaque(false);
 				
@@ -175,17 +184,17 @@ public class SwingRenamePanel extends SwingPanel implements RenamePanel {
 	
 	private void initStatusPanel() {
 		statusPanel.setOpaque(false);
-		statusPanel.setPreferredSize(new Dimension(800, 70));
+		statusPanel.setPreferredSize(new Dimension(Constants.FRAMEWIDTH, (int) (Constants.FRAMEHEIGHT/5.7)));
 		statusPanel.setLayout(new BoxLayout(statusPanel, BoxLayout.Y_AXIS));
 		statusLabel = new JLabel("Batch Rename");
 		statusLabel.setOpaque(false);
-		statusLabel.setFont(new Font(statusLabel.getFont().getName(), Font.PLAIN, 28));
+		statusLabel.setFont(Constants.BIGFONT);
 		statusLabel.setAlignmentX(JLabel.CENTER_ALIGNMENT);
 		statusPanel.add(statusLabel);
 
 		currentShow = new JLabel();
 		currentShow.setOpaque(false);
-		currentShow.setFont(new Font(statusLabel.getFont().getName(), Font.PLAIN, 20));
+		currentShow.setFont(Constants.SMALLFONT);
 		currentShow.setAlignmentX(Component.CENTER_ALIGNMENT);
 		statusPanel.add(currentShow);
 

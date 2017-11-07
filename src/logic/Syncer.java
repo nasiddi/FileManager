@@ -1,55 +1,47 @@
 package logic;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileFilter;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Observable;
+import java.util.Map;
 
-import org.apache.commons.io.FileUtils;
-
-import controller.FrameStateManager;
+import enums.Constants;
 import enums.DataType;
 import enums.ShowStatus;
-import enums.SyncNotification;
 import enums.Type;
+import model.Episode;
 import model.InfoModel;
+import model.Season;
+import model.Series;
 
 public class Syncer extends Thread {
 
 	private File[] toCopy;
-	private HashMap<String, String> shorts;
-	private HashMap<String, Series> names;
 	private HashMap<String, Series> series;
 	private ArrayList<Episode> episodes;
 	private InfoModel model;
-	private boolean copying;
 	private ArrayList<String> overview;
 	private boolean failed;
+	private ArrayList<Copy> readytoCopy;
 
-	public Syncer(FrameStateManager frameStateManager) {
-		episodes = new ArrayList<Episode>();
-		overview = new ArrayList<String>();
-		model = (InfoModel) frameStateManager.getCurrentScreen().getModel();
+	public Syncer(InfoModel model) {
+		episodes = new ArrayList<>();
+		overview = new ArrayList<>();
+		readytoCopy = new ArrayList<>();
 		this.series = model.getSeries();
+		this.model = model;
 		model.setStatusText("Syncing");
-		shorts = InfoLoader.loadShorts();
-		names = InfoLoader.loadNamesInHashMap();
 		loadLocal();
 	}
 
-	public void loadLocal() {
-		File local = new File("/Users/nadina/Series");
+	private void loadLocal() {
+		File local = new File(Constants.LOCALDIR);
 		toCopy = local.listFiles(new FileFilter() {
 			public boolean accept(File file) {
 				if (file.isHidden())
@@ -57,13 +49,16 @@ public class Syncer extends Thread {
 				return !file.isHidden();
 			}
 		});
+
+		Arrays.sort(toCopy);
 	}
 
 	public void sync() {
 		for (File copy : toCopy) {
 			sortFiles(copy);
 		}
-		copyEpisdoes();
+		prepEpisdoes();
+		execute();
 		model.setSeries(series);
 		model.displaySyncInfos(overview);
 	}
@@ -76,19 +71,8 @@ public class Syncer extends Thread {
 
 		if (getTag(copy.getName()).equals("SD") || getTag(copy.getName()).equals("HD"))
 			type = Type.MOVIE;
-
-		if (getTag(copy.getName()).equals("RP"))
-			type = Type.REPLACE;
-		if (copy.getName().startsWith("Naruto") || copy.getName().startsWith("NS"))
-			type = Type.ANIME;
-		if (getTag(copy.getName()).equals("LS") || getTag(copy.getName()).equals("FN")
-				|| (getTag(copy.getName()).equals("OG")))
-			type = Type.STATUS;
-
-		if (!copy.isDirectory() && (getExtention(copy).equals(".sub") || getExtention(copy).equals(".idx")
-				|| getExtention(copy).equals(".srt")))
+		if (!copy.isDirectory() && (Constants.SUB_EXTENSIONS.contains(getExtention(copy))))
 			type = Type.SUB;
-
 		if (copy.isDirectory())
 			type = Type.SHOW;
 
@@ -97,13 +81,11 @@ public class Syncer extends Thread {
 			copyShow(copy);
 			break;
 		case EPISODE:
-
-		case ANIME:
 			findName(copy, type);
 			break;
 		case SUB:
 			if (!findName(copy, type)) {
-				copySub(copy);
+				copySub(null, copy);
 			}
 			break;
 		case MOVIE:
@@ -112,86 +94,116 @@ public class Syncer extends Thread {
 		case UNKNOWN:
 		default:
 			String e = copy.getName() + " ERROR Type unknown";
-			System.out.println(e);
 			overview.add(e);
 			break;
 		}
 	}
 
-	private void copyEpisdoes() {
+	private void prepEpisdoes() {
 		for (Episode e : episodes) {
+			if (Constants.SUB_EXTENSIONS.contains(e.getFileFormat()))
+				continue;
+
 			if (e.getSeasonNR() == 1 && e.getEpisodeNR() == 1) {
 				createNewShow(e);
 
 			}
 			Series s = series.get(e.getSeriesName());
-			if (s == null) {
-				String e1 = "Show for " + e.getFileName() + " not found";
-				System.out.println(e1);
-				overview.add(e1);
-				continue;
-			}
-			Season sn = s.getSeasons().get(s.getSeasons().size() - 1);
-			int sea = sn.getSeasonNR();
 
-			if (sea > e.getSeasonNR()) {
-				String e2 = "Season of " + e.getFileName() + " not correct";
-				System.out.println(e2);
-				overview.add(e2);
-				continue;
-			}
-
-			if (sea + 1 == e.getSeasonNR()) {
+			if (s.getSeason(e.getSeasonNR()).getLocation() == null) {
 				createNewSeason(e, s);
-				sn = s.getSeasons().get(s.getSeasons().size() - 1);
 			}
-			e.setLocation(new File(sn.getLocation().getPath() + "/" + e.getFileName()));
-			if (execute(Paths.get(e.getLocal().getAbsolutePath()), Paths.get(e.getLocation().getAbsolutePath()))) {
-				series.get(e.getSeriesName()).getCurrentSeason().addEpisode(e);
+
+			Season sn = s.getSeasons().get(s.getSeasons().size() - 1);
+
+			try {
+				e.setLocation(new File(sn.getLocation().getPath() + "\\" + e.getCompiledFileNameWithoutExtention()
+						+ e.getFileFormat()));
+			} catch (NullPointerException ex) {
+				String e2 = "ERROR Season " + add0(e.getSeasonNR()) + " of " + e.getSeriesName()
+						+ " Folder not created";
+				overview.add(e2);
+				ex.printStackTrace();
+				continue;
 			}
+			readytoCopy.add(new Copy(Paths.get(e.getLocal().getAbsolutePath()),
+					Paths.get(e.getLocation().getAbsolutePath()), Type.EPISODE, e));
 		}
 	}
 
+	private void execute() {
+		model.setTotalProgress(readytoCopy.size());
+		for (Copy c : readytoCopy) {
+			boolean success = execute(c.from, c.to);
+			switch (c.type) {
+			case ANIME:
+			case EPISODE:
+				if (!success)
+					break;
+				Series show = series.get(c.episode.getSeriesName());
+				show.getCurrentSeason().addEpisode(c.episode);
+
+				c.episode.getLocal()
+						.renameTo(new File(c.episode.getLocal().getParentFile() + "\\_" + c.episode.getFileName()));
+				changeStatus(c.from.toFile(), show);
+				break;
+			case SHOW:
+				Series s = new Series(c.to.toFile().getParentFile().getParentFile());
+				s.changeStatusData(DataType.STATUS, c.tag);
+				series.put(c.to.toFile().getParentFile().getParent(), s);
+				break;
+			case MOVIE:
+			case SUB:
+				if (success)
+					c.from.toFile().delete();
+				break;
+			case UNKNOWN:
+			default:
+				break;
+
+			}
+		}
+
+	}
+
 	private void createNewSeason(Episode e, Series s) {
-		File folder = new File("/Volumes/Video/Series/" + e.getSeriesName() + "/" + "Season " + add0(e.getSeasonNR()));
+		File folder = new File(s.getLocation() + "\\" + "Season " + add0(e.getSeasonNR()));
 		if (folder.mkdir()) {
-			String e1 = "*** Season " + add0(e.getSeasonNR()) + " of " + e.getSeriesName() + "created ***";
-			System.out.println(e1);
+			Season season = s.getSeason(e.getSeasonNR());
+			season.setLocation(folder);
+			s.setSeasonCount();
+			String e1 = "*** Season " + add0(e.getSeasonNR()) + " of " + e.getSeriesName() + " created ***";
 			overview.add(e1);
-			s.getSeasons().add(new Season(folder, s.getSeriesName(), e.getSeasonNR()));
-			s.changeStatusData(DataType.STATUS, "In Season");
-		} else {
-			String e2 = "ERROR Season " + add0(e.getSeasonNR()) + " of " + e.getSeriesName() + " Folder not created";
-			System.out.println(e2);
-			overview.add(e2);
 		}
 	}
 
 	private String add0(int i) {
-		String s = "" + i;
+		String s = Integer.toString(i);
 		if (i < 10)
 			s = "0" + i;
 		return s;
 	}
 
 	private void createNewShow(Episode ep) {
-		File folder = new File("/Volumes/Video/Series/" + ep.getSeriesName() + "/Season 01");
+		File folder = new File(Constants.SERIESDIR + "\\" + ep.getSeriesName() + "\\Season 01");
 		if (folder.mkdirs()) {
 			String e1 = "***New Show " + ep.getSeriesName() + " created***";
-			System.out.println(e1);
 			overview.add(e1);
 			Series s = new Series(folder.getParentFile());
 			s.changeStatusData(DataType.ALL, ep.getSeriesName() + "###" + "In Season");
 			series.put(ep.getSeriesName(), s);
 		} else {
 			String e2 = "ERROR New Showfolder for " + ep.getSeriesName() + " not created";
-			System.out.println(e2);
 			overview.add(e2);
 		}
 	}
 
 	private String getTag(String copyName) {
-		return copyName.substring(0, 2);
+		try {
+			return copyName.substring(0, 2);
+		} catch (Exception e) {
+			return "";
+		}
 	}
 
 	private String getExtention(File copy) {
@@ -214,234 +226,159 @@ public class Syncer extends Thread {
 	}
 
 	private boolean findName(File copy, Type type) {
-		String showName = shorts.get(copy.getName().substring(0, 2));
+		Series show = null;
+
+		for (Series s : model.getSeriesAsSortedList()) {
+			if (s.getShort().equals(copy.getName().substring(0, 2))) {
+				show = s;
+				break;
+			}
+		}
+
+		if (show == null) {
+			if (copy.getName().length() < 6) {
+				String e1 = "Error: no Show found for " + copy.getName();
+				overview.add(e1);
+			}
+			return false;
+		}
+
 		int episodeNR;
+
 		try {
-			System.out.println(copy.getName().substring(2, (type.equals(Type.ANIME)) ? 5 : 4));
-			System.out.println(type);
+			if (copy.getName().substring(4, 5).matches("[0-9]"))
+				type = Type.ANIME;
 			episodeNR = Integer.parseInt(copy.getName().substring(2, (type.equals(Type.ANIME)) ? 5 : 4));
 		} catch (Exception e) {
-
 			return false;
 
 		}
 
-		ShowStatus action = ShowStatus.NONE;
-		if (!names.containsKey(showName)) {
-			String e1 = "Error: Show " + showName + " not found";
-			System.out.println(e1);
-			overview.add(e1);
-			return false;
-		}
-
-		Series series = names.get(showName);
-		if (!series.getCurrentSeason().getEpisdoes().containsKey(episodeNR)) {
+		if (!show.getCurrentSeason().getEpisdoes().containsKey(episodeNR)) {
 			String e1 = "Error: no name found for " + copy.getName();
-			System.out.println(e1);
 			overview.add(e1);
 			return false;
 		}
 
-		Episode e = series.getCurrentSeason().getEpisdoes().get(episodeNR);
+		Episode e = show.getCurrentSeason().getEpisdoes().get(episodeNR);
+		if (type.equals(Type.ANIME))
+			e.setAnime(true);
+		if (!e.getEpisodeName().equals("") || !show.getEpisodeNameNeeded()) {
 
-		if (!e.getEpisodeName().equals("") || series.hasEpisodesWithoutName()) {
+			File f = rename(copy, e);
+			if (f != null) {
+				if (type.equals(Type.SUB))
+					copySub(copy, f);
 
-			if (rename(copy, showName, e.getSeasonNRasString(), series, e.getEpisodeNR(), type))
 				return true;
-
+			}
 		}
+
 		String e1 = "Error: Episode not found " + copy.getName();
-		System.out.println(e1);
 		overview.add(e1);
 		return false;
+
 	}
 
-	/**
-	 * private void getDataFromFullFileName(File copy, int digit) { Series s;
-	 * try { s = series.get(copy.getName().substring(0,
-	 * copy.getName().indexOf("-", copy.getName().indexOf("x")) - (7 + digit)));
-	 * } catch (StringIndexOutOfBoundsException ex) { s =
-	 * series.get(copy.getName().substring(0,
-	 * copy.getName().lastIndexOf(".")-(digit+))); } try { if
-	 * (s.getSeasons().get(s.getSeasons().size() -
-	 * 1).getEpisdoes().containsKey(copy.getName())) System.out.println("Copy: "
-	 * + copy.getName() + " EXISTS"); } catch (NullPointerException e) {
-	 * System.out.println("Error Filename of " + copy.getName() + " not correct"
-	 * ); } }
-	 */
-	private boolean rename(File copy, String showName, String sea, Series series, int i, Type type) {
-		boolean renameOK = false;
-		Episode e = series.getCurrentSeason().getEpisdoes().get(i);
-		if (copy.getName().contains("*") && i != 0) {
-			e.setAfter(series.getCurrentSeason().getEpisdoes().get(i + 1));
-			renameOK = setNameForDoubleEpisode(e, copy);
+	private void changeStatus(File copy, Series series) {
+		if (series.getLocation() != null && series.getLocation().exists()) {
+			if (copy.getName().contains("+")) {
+				series.changeStatusData(DataType.STATUS, ShowStatus.HIATUS.toString());
+				String e1 = "*** Showstatus of " + series.getSeriesName() + " changed to Hiatus ***";
+				overview.add(e1);
+			} else if (copy.getName().contains("-")) {
+				series.changeStatusData(DataType.STATUS, ShowStatus.ENDED.toString());
+				String e1 = "*** Showstatus of " + series.getSeriesName() + " changed to Ended ***";
+				overview.add(e1);
+			} else if (!series.getShowStatus().equals(ShowStatus.INSEASON))
+				series.changeStatusData(DataType.STATUS, ShowStatus.INSEASON.toString());
+		}
+	}
+
+	private File rename(File copy, Episode e) {
+		File f = null;
+		if (copy.getName().contains("&")) {
+			f = setNameForDoubleEpisode(e, copy);
 		} else if (e.getEpisodeName().length() != 0) {
-			renameOK = setNameForSingleEpisode(e, copy, type);
-		} else if (series.hasEpisodesWithoutName())
-			renameOK = setNameForEpisodeWithoutName(e, copy, type);
-		return renameOK;
+			f = setNameForSingleEpisode(e, copy);
+		} else if (!series.get(e.getSeriesName()).getEpisodeNameNeeded())
+			f = setNameForEpisodeWithoutName(e, copy);
+		return f;
 	}
 
-	private String setTag(String name, ShowStatus showStatus) {
-		switch (showStatus) {
-		case INSEASON:
-			name = "OG " + name;
-			return name;
-		case HIATUS:
-			name = "LS " + name;
-			return name;
-		case ENDED:
-			name = "FN " + name;
-			return name;
-		case NONE:
-		default:
-			return name;
-
-		}
-
-	}
-
-	private boolean setNameForEpisodeWithoutName(Episode episode, File copy, Type type) {
+	private File setNameForEpisodeWithoutName(Episode episode, File copy) {
 		File f = new File(copy.getParent() + "/" + episode.getSeriesName() + " " + episode.getSeasonNRasString() + "x"
-				+ copy.getName().substring(2));
-		if (copy.renameTo(f)) {
-			copy = f;
-			episodes.add(new Episode(copy, episode.getSeriesName(), false, "", episode.getSeasonNR(),
-					episode.getEpisodeNR()));
-			return true;
-		}
-
-		return false;
-
+				+ episode.getEpisodeNRasString() + copy.getName().substring(copy.getName().lastIndexOf(".")));
+		episodes.add(
+				new Episode(copy, episode.getSeriesName(), false, "", episode.getSeasonNR(), episode.getEpisodeNR()));
+		return f;
 	}
 
-	private boolean setNameForSingleEpisode(Episode episode, File copy, Type type) {
+	private File setNameForSingleEpisode(Episode episode, File copy) {
 		File f = new File(copy.getParent() + "/" + episode.getCompiledFileNameWithoutExtention()
-				+ copy.getName().substring(copy.getName().lastIndexOf(".")));
-		if (copy.renameTo(f)) {
-			copy = f;
-			if (type.equals(Type.SUB))
-				copySub(copy);
-			else
-				try {
-					episodes.add(new Episode(copy, episode.getSeriesName(), false, episode.getEpisodeName(),
-							episode.getSeasonNR(), episode.getEpisodeNR()));
-				} catch (Exception e) {
-					return false;
-				}
-			return true;
+				+ copy.getName().substring(copy.getName().lastIndexOf('.')));
+		try {
+			episodes.add(new Episode(copy, episode.getSeriesName(), false, episode.getEpisodeName(),
+					episode.getSeasonNR(), episode.getEpisodeNR()));
+		} catch (Exception e) {
+			return null;
 		}
-		return false;
+		return f;
 	}
 
-	private boolean setNameForDoubleEpisode(Episode episode, File copy) {
+	private File setNameForDoubleEpisode(Episode episode, File copy) {
 		File f;
 		String epName = "";
 		String e1 = episode.getNumberAndName();
 		String e2 = episode.getAfter().getNumberAndName();
 
+		if (e2.contains(Constants.NULLEPISODE) || episode.getAfter().getEpisodeName().equals(""))
+			return null;
+
 		if (e1.contains("Part"))
-			epName = e1.substring(e1.indexOf("-") + 1, e1.lastIndexOf("P") - 1);
+			epName = e1.substring(e1.indexOf('-') + 1, e1.lastIndexOf('P') - 1);
 		else
-			epName = e1.substring(e1.indexOf("-") + 1) + " &" + e2.substring(e2.indexOf("-") + 1);
+			epName = e1.substring(e1.indexOf('-') + 1) + " &" + e2.substring(e2.indexOf('-') + 1);
 
 		f = new File(copy.getParent() + "/" + episode.getSeriesName() + " " + episode.getSeasonNRasString() + "x"
-				+ e1.substring(0, e1.indexOf(" ")) + " & " + episode.getSeasonNRasString() + "x"
-				+ e2.substring(0, e2.indexOf("-") + 1) + epName + getExtention(copy));
+				+ e1.substring(0, e1.indexOf(' ')) + " & " + episode.getSeasonNRasString() + "x"
+				+ e2.substring(0, e2.indexOf('-') + 1) + epName + getExtention(copy));
 
-		if (copy.renameTo(f)) {
-			copy = f;
-			episodes.add(new Episode(copy, episode.getSeriesName(), true, epName, episode.getSeasonNR(),
-					episode.getEpisodeNR()));
-			return true;
-		}
-		return false;
+		episodes.add(new Episode(copy, episode.getSeriesName(), true, epName, episode.getSeasonNR(),
+				episode.getEpisodeNR()));
+		return f;
+
 	}
 
 	private void copyShow(File copy) {
 		String tag = getTag(copy.getName());
 		ShowStatus showStatus = setAction(tag);
 		if (showStatus.equals(ShowStatus.NONE)) {
-			String e1 = "Error: No Tag found " + copy.getName();
-			System.out.println(e1);
+			String e1 = "Error: No Tag found for " + copy.getName();
 			overview.add(e1);
 			return;
 		}
 		copy = removeTagFromFile(copy);
-		if (series.containsKey(copy.getName())) {
+		File[] localSeasons = FileLoader.loadFilesInFolder(copy.toString());
 
-			String e1 = "Show " + copy.getName() + " EXISTS";
-			System.out.println(e1);
-			overview.add(e1);
-			return;
-		}
-
-		File copy_from_1 = copy;
-
-		File copy_to_1 = new File("/Volumes/Video/Series/");
-		model.setShowText("Copy new Show: " + copy.getName());
-		copying = true;
-		Thread progress = showProgress(copy_from_1, copy_to_1);
-		String e1 = "Copy new Show: " + copy.getName();
-		System.out.print(e1);
+		File seriesRoot = new File(Constants.SERIESDIR + "/" + copy.getName());
 		failed = false;
+		seriesRoot.mkdir();
+		for (File localSeason : localSeasons) {
+			if (!localSeason.isDirectory())
+				continue;
 
-		Thread worker = new Thread(new Runnable() {
+			File driveFolder = new File(seriesRoot + "/" + localSeason.getName());
+			driveFolder.mkdir();
 
-			@Override
-			public void run() {
-				try {
-					FileUtils.copyDirectoryToDirectory(copy_from_1, copy_to_1);
-					System.out.println(" DONE");
-				} catch (IOException e) {
-					System.out.println(" EXISTS");
-					failed = true;
-				} finally {
-					model.setShowText("");
-
-				}
+			File[] localEps = FileLoader.loadFilesInFolder(localSeason.toString());
+			for (File localEp : localEps) {
+				File driveEp = new File(driveFolder + "/" + localEp.getName());
+				readytoCopy.add(new Copy(Paths.get(localEp.toURI()), Paths.get(driveEp.toURI())));
 			}
-		});
-		worker.start();
-		try {
-			worker.join();
-			copying = false;
-			progress.join();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
-		e1 = (failed) ? e1 + " FAILED" : e1 + " DONE";
-		overview.add(e1);
-		Series s = new Series(new File(copy_to_1 + "/" + copy.getName()));
-		s.changeStatusData(DataType.STATUS, showStatus.toString());
-		series.put(copy.getName(), s);
-
-	}
-
-	private Thread showProgress(File copy_from_1, File copy_to_1) {
-
-		Thread progress = new Thread(new Runnable() {
-
-			@Override
-			public void run() {
-				long total = FileUtils.sizeOfDirectory(copy_from_1);
-				while (copying) {
-
-					File destination = new File(copy_to_1 + "/" + copy_from_1.getName());
-					int percent = 0;
-					if (destination.exists()) {
-						double current = FileUtils.sizeOfDirectory(destination);
-						percent = (int) (current * 100 / total);
-
-					}
-					model.setProgress(percent);
-
-				}
-			}
-		});
-		progress.start();
-		return progress;
+		readytoCopy.get(readytoCopy.size() - 1).type = Type.SHOW;
+		readytoCopy.get(readytoCopy.size() - 1).tag = showStatus.toString();
 	}
 
 	private File removeTagFromFile(File copy) {
@@ -456,31 +393,26 @@ public class Syncer extends Thread {
 		copy.renameTo(f);
 		copy = f;
 
-		Path copy_from_1 = Paths.get(copy.getPath());
+		Path copyFrom = Paths.get(copy.getPath());
 
-		Path copy_to_1 = Paths.get("/Volumes/Video/" + quality + "/" + copy.getName());
-		execute(copy_from_1, copy_to_1);
+		Path copyTo = Paths.get(Constants.VIDEODRIVE + quality + "\\" + copy.getName());
+		readytoCopy.add(new Copy(copyFrom, copyTo));
 
 	}
 
-	private boolean execute(Path copy_from_1, Path copy_to_1) {
-		model.setShowText(copy_from_1.getName(copy_from_1.getNameCount() - 1).toString());
-		copying = true;
+	private boolean execute(Path copyFrom, Path copyTo) {
+		model.setShowText(copyTo.getName(copyTo.getNameCount() - 1).toString());
+		model.adjustProgress();
 		failed = false;
-		Thread progress = progress(copy_from_1, copy_to_1);
-		String e1 = "Copy: " + copy_from_1.toFile().getName();
-		System.out.print(e1);
+		String e1 = "Copy: " + copyTo.toFile().getName();
 		Thread worker = new Thread(new Runnable() {
 
 			@Override
 			public void run() {
 				try {
-					Files.copy(copy_from_1, copy_to_1);
-					System.out.println(" DONE");
-					copying = false;
+					Files.copy(copyFrom, copyTo);
 				} catch (IOException e) {
-					System.out.println(" EXISTS");
-					failed = false;
+					failed = true;
 				} finally {
 					model.setShowText("");
 
@@ -491,73 +423,51 @@ public class Syncer extends Thread {
 		try {
 			worker.join();
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
-		if (copying) {
-			copying = false;
-			try {
-				progress.join();
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
 		}
 		e1 = (failed) ? e1 + " FAILED" : e1 + " DONE";
 		overview.add(e1);
 		return !failed;
 	}
 
-	private Thread progress(Path copy_from_1, Path copy_to_1) {
-		Thread progress = new Thread(new Runnable() {
-
-			@Override
-			public void run() {
-				while (copying) {
-					File original = copy_from_1.toFile();
-
-					double total = original.length();
-					File destination = copy_to_1.toFile();
-					int percent = 0;
-					if (destination.exists()) {
-						double current = destination.length();
-						percent = (int) (current * 100 / total);
-
-					}
-					model.setProgress(percent);
-
-				}
-			}
-		});
-		progress.start();
-		return progress;
+	private void copySub(File copy, File f) {
+		Path copyFrom = null;
+		if (f != null)
+			copyFrom = Paths.get(copy.getPath());
+		else
+			copyFrom = Paths.get(f.getPath());
+		Path copyTo = Paths.get(Constants.SUBDIR + f.getName());
+		readytoCopy.add(new Copy(copyFrom, copyTo, Type.SUB));
 	}
 
-	private void copySub(File copy) {
-		Path copy_from_1 = Paths.get(copy.getPath());
-		Path copy_to_1 = Paths.get("/Volumes/Temp/Subs/" + copy.getName());
-		execute(copy_from_1, copy_to_1);
-
-		if (copy.getName().startsWith("Game")) {
-			copy_to_1 = Paths.get("/Users/nadina/Dropbox/Stuff/GoT06/" + copy.getName());
-			execute(copy_from_1, copy_to_1);
-		}
-		copy.delete();
-
-	}
-
-	public HashMap<String, Series> getSeries() {
+	public Map<String, Series> getSeries() {
 		return series;
 	}
 
 }
 
-class Change {
-	String[] eps;
-	int i;
+class Copy {
+	Path to;
+	Path from;
+	Type type = Type.UNKNOWN;
+	Episode episode;
+	String tag;
 
-	Change(String[] eps, int i) {
-		this.eps = eps;
-		this.i = i;
+	Copy(Path from, Path to) {
+		this.from = from;
+		this.to = to;
+	}
+
+	Copy(Path from, Path to, Type type, Episode episode) {
+		this.from = from;
+		this.to = to;
+		this.type = type;
+		this.episode = episode;
+	}
+
+	public Copy(Path copyFrom, Path copyTo, Type type) {
+		this.from = copyFrom;
+		this.to = copyTo;
+		this.type = type;
 	}
 }

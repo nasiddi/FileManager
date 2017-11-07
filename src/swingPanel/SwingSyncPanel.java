@@ -1,11 +1,9 @@
 package swingPanel;
 
-import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Font;
 import java.util.Observable;
 
 import javax.swing.Box;
@@ -17,8 +15,10 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.ScrollPaneConstants;
 
+import enums.Constants;
 import enums.SyncNotification;
 import gui.BackgroundPanel;
+import gui.NavButton;
 import model.InfoModel;
 import panel.SwingPanel;
 import panel.SyncPanel;
@@ -44,7 +44,7 @@ public class SwingSyncPanel extends SwingPanel implements SyncPanel{
 		panel.add(statusPanel);
 		initStatusPanel();
 		infoPanel = new JPanel();
-		panel.add(Box.createVerticalStrut(10));
+		panel.add(Box.createVerticalStrut(Constants.FRAMEHEIGHT/40));
 
 		
 		panel.add(infoPanel);
@@ -55,7 +55,7 @@ public class SwingSyncPanel extends SwingPanel implements SyncPanel{
 		flowButton.setOpaque(false);
 		buttonPanel = new JPanel();
 		panel.add(flowButton);
-		panel.add(Box.createVerticalStrut(25));
+		panel.add(Box.createVerticalStrut(Constants.FRAMEHEIGHT/16));
 
 		flowButton.add(buttonPanel);
 		initButtonPanel();
@@ -66,20 +66,20 @@ public class SwingSyncPanel extends SwingPanel implements SyncPanel{
 	
 	private void initStatusPanel(){
 		statusPanel.setOpaque(false);
-		statusPanel.setPreferredSize(new Dimension(800, 100));
+		statusPanel.setPreferredSize(new Dimension(Constants.FRAMEWIDTH, Constants.FRAMEHEIGHT/4));
 		statusPanel.setLayout(new BoxLayout(statusPanel, BoxLayout.Y_AXIS));
 		statusLabel = new JLabel();
 		currentShow = new JLabel();
 		statusLabel.setOpaque(false);
 		currentShow.setOpaque(false);
-		statusLabel.setFont(new Font(statusLabel.getFont().getName(), Font.PLAIN, 28));
+		statusLabel.setFont(Constants.BIGFONT);
 		statusLabel.setAlignmentX(JLabel.CENTER_ALIGNMENT);
-		currentShow.setFont(new Font(statusLabel.getFont().getName(), Font.PLAIN, 20));
+		currentShow.setFont(Constants.SMALLFONT);
 		currentShow.setAlignmentX(Component.CENTER_ALIGNMENT);
 		
 		progress = new JLabel();
 		progress.setOpaque(false);
-		progress.setFont(new Font(statusLabel.getFont().getName(), Font.PLAIN, 20));
+		progress.setFont(Constants.SMALLFONT);
 		progress.setAlignmentX(JLabel.CENTER_ALIGNMENT);
 
 		statusPanel.add(statusLabel);
@@ -90,10 +90,10 @@ public class SwingSyncPanel extends SwingPanel implements SyncPanel{
 	private void initButtonPanel() {
 		buttonPanel.setLayout(new FlowLayout(FlowLayout.CENTER));
 		buttonPanel.setOpaque(false);
-		buttonPanel.setPreferredSize(new Dimension(800, 30));
+		buttonPanel.setPreferredSize(new Dimension(Constants.FRAMEWIDTH, Constants.FRAMEHEIGHT/14));
 		buttonPanel.setVisible(false);
-		JButton menuButton = new JButton("Main Menu");
-
+		JButton menuButton = new NavButton("Main Menu");
+		
 
 		buttonPanel.add(menuButton);
 		
@@ -116,8 +116,9 @@ public class SwingSyncPanel extends SwingPanel implements SyncPanel{
 		infoField = new JTextArea();
 
 		infoField.setEditable(false);
+		infoField.setFont(Constants.BOXFONT);
 		JScrollPane scroll = new JScrollPane(infoField);
-		scroll.setPreferredSize(new Dimension(760, 250));
+		scroll.setPreferredSize(new Dimension((int) (Constants.FRAMEWIDTH/1.05), (int) (Constants.FRAMEHEIGHT/2)));
 
 		scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
 		scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
@@ -153,7 +154,7 @@ public class SwingSyncPanel extends SwingPanel implements SyncPanel{
 
 	}
 
-	public void updateStatus(InfoModel model) {
+	private void updateStatus(InfoModel model) {
 		currentShow.setText(model.getShowText());
 		statusLabel.setText(model.getStatusText());
 		progress.setText(model.getProgress());
@@ -174,5 +175,6 @@ public class SwingSyncPanel extends SwingPanel implements SyncPanel{
 
 	@Override
 	public void reset() {
+		buttonPanel.setVisible(false);
 	}
 }

@@ -1,18 +1,16 @@
 package swingPanel;
 
-import java.awt.Button;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Font;
+import java.util.ArrayList;
 import java.util.Observable;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
-import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
@@ -20,11 +18,12 @@ import javax.swing.JTextField;
 import enums.Constants;
 import enums.ErrorNotification;
 import gui.BackgroundPanel;
-import model.InfoModel;
-import panel.ErrorPanel;
+import gui.NavButton;
+import logic.ErrorSearchThread;
+import model.Error;
 import panel.SwingPanel;
 
-public class SwingErrorPanel extends SwingPanel implements ErrorPanel {
+public class SwingErrorPanel extends SwingPanel {
 
 	private BackgroundPanel container;
 	private JPanel statusPanel;
@@ -34,10 +33,16 @@ public class SwingErrorPanel extends SwingPanel implements ErrorPanel {
 	private JPanel panel;
 	private JPanel errorPanel;
 	private JPanel buttonPanel;
-	private JTextField[] textFields;
-	private JButton[] buttons;
+	private JTextField current;
+	private JTextField before;
+	private JTextField after;
+
+	private NavButton[] buttons;
 	private JLabel errorText;
-	private JButton add;
+	private NavButton add;
+
+	private ErrorSearchThread est;
+	private NavButton exception;
 
 	public SwingErrorPanel() {
 		container = new BackgroundPanel();
@@ -56,7 +61,7 @@ public class SwingErrorPanel extends SwingPanel implements ErrorPanel {
 		flowStatus.add(statusPanel);
 		initStatusPanel();
 
-		panel.add(Box.createVerticalStrut(20));
+		panel.add(Box.createVerticalStrut(Constants.FRAMEHEIGHT / 20));
 
 		errorPanel = new JPanel();
 		panel.add(flowError);
@@ -68,11 +73,11 @@ public class SwingErrorPanel extends SwingPanel implements ErrorPanel {
 		flowButton.add(buttonPanel);
 		initButtonPanel();
 
-		panel.add(Box.createVerticalStrut(30));
-		
+		panel.add(Box.createVerticalStrut(Constants.FRAMEHEIGHT / 13));
+
 		errorPanel.setVisible(false);
 		buttonPanel.setVisible(false);
-		
+
 		container.repaint();
 		container.revalidate();
 	}
@@ -80,226 +85,243 @@ public class SwingErrorPanel extends SwingPanel implements ErrorPanel {
 	private void initButtonPanel() {
 		buttonPanel.setLayout(new FlowLayout(FlowLayout.CENTER));
 		buttonPanel.setOpaque(false);
-		buttonPanel.setPreferredSize(new Dimension(800, 30));
+		buttonPanel.setPreferredSize(new Dimension(Constants.FRAMEWIDTH, Constants.FRAMEHEIGHT / 13));
 
-		JButton cont = new JButton("Continue");
-		JButton quit = new JButton("Quit");
-		add = new JButton("Add Word");
+		NavButton cont = new NavButton("Continue");
+		NavButton quit = new NavButton("Quit");
+		add = new NavButton("Add Word");
+		exception = new NavButton("Exception");
 
-		double width = Math.max(Math.max(cont.getMinimumSize().getWidth(), quit.getMinimumSize().getWidth()),
-				add.getMinimumSize().getWidth());
+		ArrayList<NavButton> blist = new ArrayList<NavButton>();
+		blist.add(quit);
+		blist.add(cont);
+		blist.add(add);
+		blist.add(exception);
 
-		buttonPanel.add(adjustWidth(cont, width));
-		buttonPanel.add(adjustWidth(quit, width));
-		buttonPanel.add(adjustWidth(add, width));
+		NavButton.evenButtonWidth(blist);
+
+		buttonPanel.add(cont);
+		buttonPanel.add(quit);
+		buttonPanel.add(add);
+		buttonPanel.add(exception);
+
 		
 		cont.addActionListener(e -> {
+			est.getError().setNewNames(before.getText(), current.getText(), after.getText());
 			setChanged();
+			update(null, ErrorNotification.CONTINUE);
 			notifyObservers(ErrorNotification.CONTINUE);
 		});
-		
+
 		quit.addActionListener(e -> {
 			setChanged();
 			notifyObservers(ErrorNotification.QUIT);
 		});
-		
 
 		add.addActionListener(e -> {
-			add.setForeground(Color.BLUE);
-			setChanged();
-			notifyObservers(ErrorNotification.ADD);
+			add.toggleColor();
+			est.getError().addOrRemoveAction(ErrorNotification.ADD);
+		});
+
+		exception.addActionListener(e -> {
+			exception.toggleColor();
+			est.getError().addOrRemoveAction(ErrorNotification.EXCEPTION);
+
 		});
 	}
 
-	private JComponent adjustWidth(JComponent component, double width) {
-		component.setMinimumSize(new Dimension((int) width, (int) component.getPreferredSize().getHeight()));
-		component.setPreferredSize(new Dimension((int) width, (int) component.getPreferredSize().getHeight()));
-		return component;
-	}
-
 	private void initErrorPanel() {
-		errorPanel.setPreferredSize(new Dimension(800, 250));
+		errorPanel.setPreferredSize(new Dimension(Constants.FRAMEWIDTH, (int) (Constants.FRAMEHEIGHT / 1.6)));
 		errorPanel.setOpaque(false);
 		errorPanel.setBackground(panelColor);
 		errorPanel.setLayout(new BoxLayout(errorPanel, BoxLayout.Y_AXIS));
 
 		errorText = new JLabel("Error Message");
 		errorText.setOpaque(false);
-		errorText.setFont(new Font(statusLabel.getFont().getName(), Font.PLAIN, 20));
+		errorText.setFont(Constants.SMALLFONT);
 		errorText.setAlignmentX(Component.CENTER_ALIGNMENT);
 		errorPanel.add(errorText);
 
-		textFields = new JTextField[3];
-		buttons = new JButton[6];
+		buttons = new NavButton[6];
 		for (int i = 0; i < 3; i++)
 			initFieldAndButtons(i);
 
+		NavButton.evenButtonWidth(buttons);
+		
+		
 		buttons[Constants.BEFORE].addActionListener(e -> {
-			buttons[Constants.BEFORE].setForeground(Color.BLUE);
-			setChanged();
-			notifyObservers(ErrorNotification.RENAME_BEFORE);
+			buttons[Constants.BEFORE].toggleColor();
+			est.getError().addOrRemoveAction(ErrorNotification.RENAME_BEFORE);
 		});
-		
-		buttons[Constants.BEFORE+3].addActionListener(e -> {
-			buttons[Constants.BEFORE+3].setForeground(Color.BLUE);
-			setChanged();
-			notifyObservers(ErrorNotification.DELETE_BEFORE);
+
+		buttons[Constants.BEFORE + 3].addActionListener(e -> {
+			buttons[Constants.BEFORE + 3].toggleColor();
+			est.getError().addOrRemoveAction(ErrorNotification.DELETE_BEFORE);
 		});
-		
+
 		buttons[Constants.CURRENT].addActionListener(e -> {
-			buttons[Constants.CURRENT].setForeground(Color.BLUE);
-			setChanged();
-			notifyObservers(ErrorNotification.RENAME_CURRENT);
+			buttons[Constants.CURRENT].toggleColor();
+			est.getError().addOrRemoveAction(ErrorNotification.RENAME_CURRENT);
 		});
-		
-		buttons[Constants.CURRENT+3].addActionListener(e -> {
-			buttons[Constants.CURRENT+3].setForeground(Color.BLUE);
-			setChanged();
-			notifyObservers(ErrorNotification.DELETE_CURRENT);
+
+		buttons[Constants.CURRENT + 3].addActionListener(e -> {
+			buttons[Constants.CURRENT + 3].toggleColor();
+			est.getError().addOrRemoveAction(ErrorNotification.DELETE_CURRENT);
 		});
-		
+
 		buttons[Constants.AFTER].addActionListener(e -> {
-			buttons[Constants.AFTER].setForeground(Color.BLUE);
-			setChanged();
-			notifyObservers(ErrorNotification.RENAME_AFTER);
+			buttons[Constants.AFTER].toggleColor();
+			est.getError().addOrRemoveAction(ErrorNotification.RENAME_AFTER);
 		});
-		
-		buttons[Constants.AFTER+3].addActionListener(e -> {
-			buttons[Constants.AFTER+3].setForeground(Color.BLUE);
-			setChanged();
-			notifyObservers(ErrorNotification.DELETE_AFTER);
+
+		buttons[Constants.AFTER + 3].addActionListener(e -> {
+			buttons[Constants.AFTER + 3].toggleColor();
+			est.getError().addOrRemoveAction(ErrorNotification.DELETE_AFTER);
 		});
 	}
 
 	private void initFieldAndButtons(int position) {
 		JPanel flowTextField = new JPanel(new FlowLayout(FlowLayout.CENTER));
-		textFields[position] = new JTextField();
-		flowTextField.add(textFields[position]);
+		JTextField textfield = new JTextField();
+		textfield.setFont(Constants.BOXFONT);
+		textfield.setPreferredSize(
+				new Dimension(Constants.FRAMEWIDTH * 6 / 10, (int) textfield.getPreferredSize().getHeight()));
+		switch (position) {
+		case Constants.BEFORE:
+			before = textfield;
+			flowTextField.add(before);
+			break;
+		case Constants.CURRENT:
+			current = textfield;
+			flowTextField.add(current);
+			break;
+		case Constants.AFTER:
+			after = textfield;
+			flowTextField.add(after);
+			break;
+		default:
+			break;
+		}
+
 		flowTextField.setOpaque(false);
 		JPanel flowButtons = new JPanel(new FlowLayout(FlowLayout.CENTER));
-		buttons[position] = new JButton("Rename");
-		buttons[position + 3] = new JButton("Delete");
+		buttons[position] = new NavButton("Rename");
+		buttons[position + 3] = new NavButton("Delete");
+		flowButtons.add(buttons[position]);
+		flowButtons.add(buttons[position + 3]);
 		flowButtons.setOpaque(false);
-				
-		double width = Math.max(buttons[position].getPreferredSize().getWidth(), buttons[position + 3].getPreferredSize().getWidth());
-		flowButtons.add(adjustWidth(buttons[position], width));
-		flowButtons.add(adjustWidth(buttons[position + 3], width));
-		textFields[Constants.BEFORE].setText("flowTextField");
+
+		flowTextField.add(flowButtons);
 		errorPanel.add(flowTextField);
-		errorPanel.add(flowButtons);
-		
-		
 
 	}
 
-	private void setButtonColor(JButton button, Color color){
+	private void setButtonColor(JButton button, Color color) {
 		button.setForeground(color);
 	}
+
 	private void initStatusPanel() {
 		statusPanel.setOpaque(false);
-		statusPanel.setPreferredSize(new Dimension(800, 70));
+		statusPanel.setPreferredSize(new Dimension(Constants.FRAMEWIDTH, (int) (Constants.FRAMEHEIGHT / 5.7)));
 		statusPanel.setLayout(new BoxLayout(statusPanel, BoxLayout.Y_AXIS));
-		statusLabel = new JLabel("Error");
+		statusLabel = new JLabel("Searching for Errors");
 		statusLabel.setOpaque(false);
-		statusLabel.setFont(new Font(statusLabel.getFont().getName(), Font.PLAIN, 28));
+		statusLabel.setFont(Constants.BIGFONT);
 		statusLabel.setAlignmentX(JLabel.CENTER_ALIGNMENT);
 		statusPanel.add(statusLabel);
 
 		currentShow = new JLabel();
 		currentShow.setOpaque(false);
-		currentShow.setFont(new Font(statusLabel.getFont().getName(), Font.PLAIN, 20));
+		currentShow.setFont(Constants.SMALLFONT);
 		currentShow.setAlignmentX(Component.CENTER_ALIGNMENT);
 		statusPanel.add(currentShow);
 
 	}
-	
-	
-	
 
 	@Override
 	public void update(Observable o, Object arg) {
 
 		if (arg instanceof ErrorNotification) {
-			InfoModel model = (InfoModel) o;
+
 			switch ((ErrorNotification) arg) {
 			case UPDATE:
-				updateStatus(model);
 				container.revalidate();
 				container.repaint();
 				break;
+			case NEW_WORD:
+				add.setEnabled(true);
 			case ERRORFOUND:
-				updateErrorPanel(model);
+				est = (ErrorSearchThread) o;
+				updateErrorPanel();
 				container.revalidate();
 				container.repaint();
 				break;
-			case ADD:
-				model.addAction(ErrorNotification.ADD);
-				break;
+
 			case CONTINUE:
-				model.addAction(ErrorNotification.CONTINUE);
-				errorPanel.setVisible(false);
-				buttonPanel.setVisible(false);
-				container.setMiddlePanelBackgroundVisibility(false);
+				enableErrorPanel(false);
 				container.revalidate();
 				container.repaint();
+				updateStatus();
 				resetButtons();
-				break;
-			case DELETE_AFTER:
-				model.addAction(ErrorNotification.DELETE_AFTER);
-				break;
-			case DELETE_BEFORE:
-				model.addAction(ErrorNotification.DELETE_BEFORE);
-				break;
-			case DELETE_CURRENT:
-				model.addAction(ErrorNotification.DELETE_CURRENT);
+
 				break;
 			case RENAME_AFTER:
-				model.setAfterName(getAfterName());
 				break;
 			case RENAME_BEFORE:
-				model.setBeforeName(getBeforeName());
 				break;
 			case RENAME_CURRENT:
-				model.setCurrentName(getCurrentName());
 				break;
 			default:
 				break;
-				
-				
+
 			}
 		}
 		container.repaint();
 		container.revalidate();
 	}
-	
-	private void resetButtons(){
-		for(JButton button : buttons)
+
+	private void resetButtons() {
+		for (JButton button : buttons)
 			setButtonColor(button, Color.BLACK);
 		setButtonColor(add, Color.BLACK);
+		setButtonColor(exception, Color.BLACK);
 	}
 
-	private void updateErrorPanel(InfoModel model) {
-		errorPanel.setVisible(true);
-		buttonPanel.setVisible(true);
-		container.setMiddlePanelBackgroundVisibility(true);
-		errorText.setText(model.getErrorMessage());
-		for (int i = 0; i < 3; i++) {
-			textFields[i].setText(model.getErrorNames()[i]);
+	private void updateErrorPanel() {
+		enableErrorPanel(true);
+		Error error = est.getError();
+		statusLabel.setText("Error Found");
+		if(error.getNewWord() != null){
+			add.setEnabled(true);
+			exception.setEnabled(true);
+		}else{
+			add.setEnabled(false);
+			exception.setEnabled(false);
 		}
-		
-		add.setEnabled(model.isNewWord());
-		
-		double width = Math.max(Math.max(0, textFields[Constants.BEFORE].getText().length()),
-				Math.max(textFields[Constants.CURRENT].getText().length(), textFields[Constants.AFTER].getText().length()));
-		for (int i = 0; i < 3; i++) {
-			adjustWidth(textFields[i], width*8);
-		}
-		
+		currentShow.setText(error.getShow().getSeriesName());
+		errorText.setText(error.getMessage());
+
+		current.setText(error.getCurrent());
+		before.setText(error.getBefore());
+		after.setText(error.getAfter());
+
+		current.setPreferredSize(
+				new Dimension(Constants.FRAMEWIDTH * 6 / 10, (int) current.getPreferredSize().getHeight()));
+		before.setPreferredSize(
+				new Dimension(Constants.FRAMEWIDTH * 6 / 10, (int) before.getPreferredSize().getHeight()));
+		after.setPreferredSize(
+				new Dimension(Constants.FRAMEWIDTH * 6 / 10, (int) after.getPreferredSize().getHeight()));
 	}
 
-	public void updateStatus(InfoModel model) {
-		currentShow.setText(model.getShowText());
-		statusLabel.setText(model.getStatusText());
+	private void enableErrorPanel(boolean enable) {
+		errorPanel.setVisible(enable);
+		buttonPanel.setVisible(enable);
+		container.setMiddlePanelBackgroundVisibility(enable);
+	}
+
+	private void updateStatus() {
+		currentShow.setText("");
+		statusLabel.setText("Searching for Errors");
 	}
 
 	@Override
@@ -319,19 +341,7 @@ public class SwingErrorPanel extends SwingPanel implements ErrorPanel {
 
 	}
 
-	@Override
-	public String getBeforeName() {
-		return textFields[Constants.BEFORE].getText();
+	public ErrorSearchThread getErrorSearchThread() {
+		return est;
 	}
-
-	@Override
-	public String getCurrentName() {
-		return textFields[Constants.CURRENT].getText();
-	}
-
-	@Override
-	public String getAfterName() {
-		return textFields[Constants.AFTER].getText();
-	}
-
 }

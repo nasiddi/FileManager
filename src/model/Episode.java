@@ -3,6 +3,9 @@ package model;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+
+import org.apache.commons.io.FileUtils;
+
 import enums.Constants;
 
 public class Episode {
@@ -13,21 +16,23 @@ public class Episode {
 	private String seriesName;
 	private int episodeNR;
 	private String episodeName = "";
-	private String fileFormat;
+	private String fileFormat = "";
 	private boolean isMulti = false;
 	private boolean isAnime = false;
 	private String fileName;
 	private Episode previous;
 	private Episode after;
 	private ArrayList<File> fileList = new ArrayList<File>();
+	private double fileSize;
 
-	public Episode(File local, String seriesName, boolean isMulti, String episodeName, int seasonNR, int episodeNR) {
+	public Episode(File local, String seriesName, boolean isMulti, String episodeName, int seasonNR, int episodeNR, boolean isAnime) {
 		this.setLocal(local);
 		this.seriesName = seriesName;
 		this.isMulti = isMulti;
 		this.seasonNR = seasonNR;
 		this.episodeName = episodeName;
 		this.episodeNR = episodeNR;
+		this.isAnime = isAnime;
 		fileName = getCompiledFileNameWithoutExtention() + local.getName().substring(local.getName().lastIndexOf("."));
 		
 		this.fileFormat = fileName.substring(fileName.lastIndexOf("."));
@@ -46,12 +51,11 @@ public class Episode {
 		this.seriesName = seriesName;
 		this.seasonNR = seasonNR;
 		isAnime = (location.getAbsolutePath().contains("Anime")) ? true : false;
-
+		setFileSize();
 		setEpisodeNRFromFile();
 		try {
 			this.fileFormat = fileName.substring(fileName.lastIndexOf("."));
 		} catch (StringIndexOutOfBoundsException e) {
-			fileFormat = "";
 		}
 		setEpisodeNameFromFile();
 		checkForTwoParter(fileName);
@@ -59,6 +63,20 @@ public class Episode {
 		setAfter(new Episode());
 
 		createTreeFile();
+	}
+
+	private void setFileSize() {
+		double size = FileUtils.sizeOf(location);
+		fileSize = (int) ((size / (1024 * 1024)) * 100) / 100.0;
+		
+	}
+
+	public double getFileSize() {
+		return fileSize;
+	}
+
+	public void setFileSize(double fileSize) {
+		this.fileSize = fileSize;
 	}
 
 	private void createTreeFile() {
@@ -86,7 +104,6 @@ public class Episode {
 		seriesName = Constants.NULLEPISODE;
 		episodeNR = 0;
 		episodeName = Constants.NULLEPISODE;
-		fileFormat = Constants.NULLEPISODE;
 		isMulti = false;
 		isAnime = false;
 		fileName = Constants.NULLEPISODE;
@@ -100,7 +117,6 @@ public class Episode {
 		seriesName = Constants.NULLEPISODE;
 		episodeNR = 0;
 		episodeName = Constants.NULLEPISODE;
-		fileFormat = Constants.NULLEPISODE;
 		isMulti = false;
 		isAnime = false;
 		fileName = Constants.NULLEPISODE;
@@ -162,7 +178,10 @@ public class Episode {
 	}
 
 	public String getCompiledFileNameWithoutExtention() {
-		return getSeriesNameAnd01x01() + " - " + episodeName;
+		if(episodeName.equals(""))
+			return getSeriesNameAnd01x01();
+		else
+			return getSeriesNameAnd01x01() + " - " + episodeName;
 	}
 
 	public String getSeriesNameAnd01x01() {

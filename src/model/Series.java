@@ -93,9 +93,14 @@ public class Series {
 	}
 
 	public void setInfo(String[] info) {
-		premiere = info[1];
-		end = info[2];
-		setShowStatusFromString(info[3]);
+		try {
+			premiere = info[1];
+			end = info[2];
+			setShowStatusFromString(info[3]);
+		} catch (IndexOutOfBoundsException e) {
+			e.printStackTrace();
+		}
+
 	}
 
 	public void changeStatusData(DataType type, String string) {
@@ -162,11 +167,10 @@ public class Series {
 				seasons.add(newSeason);
 			}
 			for (Episode e : newSeason.getEpisodesAsSortedList()) {
-				if (season.getEpisdoes().containsKey(e.getEpisodeNR())) {
-					if (season.getEpisdoes().get(e.getEpisodeNR()).fileExists()) {
-						continue;
-					}
-				}
+				if (season.getEpisdoes().containsKey(e.getEpisodeNR()) && season.getEpisdoes().get(e.getEpisodeNR()).fileExists())
+					continue;
+				if(season.getEpisdoes().containsKey(e.getEpisodeNR()-1) && season.getEpisdoes().get(e.getEpisodeNR()-1).getIsMulti())
+					continue;
 				season.getEpisdoes().put(e.getEpisodeNR(), e);
 			}
 			season.linkEpisodes();

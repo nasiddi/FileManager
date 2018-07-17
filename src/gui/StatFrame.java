@@ -36,6 +36,7 @@ import javax.swing.table.TableCellEditor;
 
 import enums.Constants;
 import enums.DataType;
+import enums.ShowStatus;
 import logic.InfoIO;
 import model.Episode;
 import model.InfoModel;
@@ -67,9 +68,10 @@ public class StatFrame {
 		panel.setLayout(new BorderLayout());
 		panel.setBackground(Color.WHITE);
 		getTotalStats();
-		// findUnlinkedEpisodes();
+		findUnlinkedEpisodes();
 		printTable();
 	//	mostUsedNames();
+		//findAVIs();
 		initStatistic();
 		initTable();
 		frame.addWindowListener(new WindowAdapter() {
@@ -100,12 +102,23 @@ public class StatFrame {
 
 	public void updateTotalStats() {
 		TotalStats tS = getTotalStats();
-
-		String content = tS.shows + "\tSeries\n" + tS.seasons + "\tSeasons\n" + tS.episodes + "\tEpisodes\n"
-				+ (int) tS.size + "\tGigaBytes\n" + tS.inSeason + " (" + (100 * tS.inSeason / tS.shows)
-				+ "%)\tIn Season\n" + tS.hiatus + " (" + (100 * tS.hiatus / tS.shows) + "%)\tOn Hiatus\n" + tS.ended
-				+ " (" + (100 * tS.ended / tS.shows) + "%)\tEnded\n" + (int) (100 * tS.size / tS.episodes) / 100.0
-				+ "\tGB/Episode\n" + tS.episodes / tS.shows + "\tAvg. Episodes/Series\n" + tS.dixSize + "\tWords";
+		String content = tS.shows + "\tSeries\n" 
+				+ tS.seasons + "\tSeasons\n" 
+				+ tS.episodes + "\tEpisodes\n"
+				+ (int) tS.size + "\tGigaBytes\n" 
+				+ tS.inSeason + " (" + (100 * tS.inSeason / tS.shows) + "%)\tIn Season\n" 
+				+ tS.hiatus + " (" + (100 * tS.hiatus / tS.shows) + "%)\tOn Hiatus\n" 
+				+ tS.ended + " (" + (100 * tS.ended / tS.shows) + "%)\tEnded\n" 
+				+ (int) (100 * tS.size / tS.episodes) / 100.0 + "\tGB/Episode\n" 
+				+ tS.episodes / tS.shows + "\tAvg. Episodes/Series\n" 
+				+ tS.episodes / tS.seasons + "\tAvg. Episodes/Season\n"
+				+ (int) (100 * (tS.seasons * 1.0) / (tS.shows * 1.0)) / 100.0 + "\tAvg Seasons/Series\n" 
+				+ (int) (100 * tS.size / tS.shows) / 100.0 + "\tAvg. GB/Series\n" 
+				+ tS.dixSize + "\tWords\n";
+		while(!tS.extentions.isEmpty()){
+			String maxKey = tS.extentions.entrySet().stream().max((entry1, entry2) -> entry1.getValue() > entry2.getValue() ? 1 : -1).get().getKey();
+			content += tS.extentions.remove(maxKey) + "\t" + maxKey +"\n";
+		}
 		statsArea.setText(content);
 	}
 
@@ -150,6 +163,10 @@ public class StatFrame {
 		totalStats.shows = series.size();
 		totalStats.dixSize = InfoIO.loadInfoFile(Constants.DICTIONARYFILE).size();
 		totalStats.dixSize += InfoIO.loadInfoFile(Constants.SMALLEXCEPTIONS).size();
+		totalStats.extentions = new HashMap<String, Integer>();
+		for(String extention : InfoIO.loadInfoFile(Constants.EXTENTIONS)){
+			totalStats.extentions.put(extention, 0);
+		}
 		for (Series s : series) {
 			totalStats.episodes += s.getTotalCount();
 			totalStats.seasons += s.getSeasonCount();
@@ -169,10 +186,32 @@ public class StatFrame {
 				break;
 			default:
 				break;
-
+			}
+		
+		for(Season season : s.getSeasons()){
+			for(Episode e : season.getEpisodesAsSortedList()){
+				totalStats.extentions.computeIfPresent(e.getFileFormat(), (k, v) -> v+1);
 			}
 		}
 
+			
+		}
+		double average = totalStats.size / totalStats.episodes * 1024;
+		int count = 0;
+		double size = 0;
+		System.out.println("******************" + average + "******************");
+		for(Series s : series){
+			for(Season sea : s.getSeasons()){
+				for(Episode e : sea.getEpisodesAsSortedList()){
+					if(e.getFileSize() > average){
+						count++;
+						size += e.getFileSize();
+					}
+				}
+			}
+		}
+		System.out.println("Count " + count);
+		System.out.println("Size " + size);
 		return totalStats;
 	}
 
@@ -210,14 +249,11 @@ public class StatFrame {
 		int uniqueCounter = 0;
 		int totWords = 0;
 		for (Entry e : set) {
-			System.out.println(e.getKey() + ": " + e.getValue());
 			if (!e.getKey().equals(""))
 				totWords += (int) e.getValue();
 			if ((int) e.getValue() == 1)
 				uniqueCounter++;
 		}
-		System.out.println("Unique Words: " + uniqueCounter);
-		System.out.println("Total Words: " + totWords);
 	}
 
 	public <K, V extends Comparable<? super V>> Map<K, V> sortByValue(Map<K, V> map) {
@@ -231,23 +267,13 @@ public class StatFrame {
 	private void findAVIs() {
 		int count = 0;
 		for (Series s : series) {
-			for (Season season : s.getSeasons()) {
-				for (Episode episode : season.getEpisodesAsSortedList()) {
-					if (episode.getFileFormat().equals(".avi")) {
-						System.out.println(episode.getFileName());
-						count++;
-					}
-
-				}
-
+			if(!s.getShowStatus().equals(ShowStatus.ENDED)){
 			}
 		}
-		System.out.println(count);
 	}
 	
 	private void printTable(){
 		for(Series show : series){
-			System.out.println(show.getSeriesName()+";"+show.getShowStatus().toString()+";"+show.getTotalCount()+";"+show.getSeasonCount()+";"+show.getPremiere());
 		}
 	}
 
@@ -256,11 +282,8 @@ public class StatFrame {
 		for (Series show : series) {
 			for (Season season : show.getSeasons()) {
 				for (Episode episode : season.getEpisodesAsSortedList()) {
-
-					if (episode.getAfter().getEpisodeName().equals("nullEpisode")
-							&& !episode.equals(show.getLastEpisode())) {
+					if(episode.fileExists() && !episode.getFileFormat().equals(".mp4") && !episode.getFileFormat().equals(".mkv") && !episode.getFileFormat().equals(".m4v") && !episode.getFileFormat().equals(".avi"))
 						System.out.println(episode.getFileName());
-					}
 				}
 
 			}
@@ -426,4 +449,5 @@ class TotalStats {
 	int hiatus;
 	int ended;
 	int dixSize;
+	HashMap<String, Integer> extentions;
 }

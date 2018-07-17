@@ -105,6 +105,9 @@ public class ErrorSearchThread extends Observable implements Runnable {
 
 				if (checkForSmallCap(e))
 					break seasonLoop;
+				
+				if (checkForPartNumbers(e))
+					break seasonLoop;
 
 				if (checkForNewWord(e))
 					break seasonLoop;
@@ -122,9 +125,6 @@ public class ErrorSearchThread extends Observable implements Runnable {
 					break seasonLoop;
 
 				if (checkForWrongSymbols(e))
-					break seasonLoop;
-
-				if (checkForPartNumbers(e))
 					break seasonLoop;
 
 				if (e.equals(show.getLastExistingFile()))
@@ -177,27 +177,16 @@ public class ErrorSearchThread extends Observable implements Runnable {
 
 	private boolean checkForPartNumbers(Episode e) {
 		String epi = e.getFileName();
-		if (epi.contains("Part 1") || epi.contains("Part 2") || epi.contains("Part 3") || epi.contains("Part 4")
-				|| epi.contains("Part 5")) {
+		if (epi.contains("(1)") || epi.contains("(2)") || epi.contains("(3)") || epi.contains("(4)")) {
 
-			String test = epi.replaceFirst("Part", "");
-			if (test.contains("Part 1") || test.contains("Part 2") || test.contains("Part 3") || test.contains("Part 4")
-					|| test.contains("Part 5")) {
-				String suggestion = epi.substring(epi.indexOf("Part") - 1);
-				return generateCapsError(e, "Part not needed for " + e.getFileName(), "", suggestion,
-						ExceptionType.NONE);
-			}
-
-			String temp = epi.substring(epi.lastIndexOf("Part "));
-			String i = temp.substring(5, 6);
-			int c = Integer.parseInt(i);
+			String temp = epi.substring(epi.lastIndexOf("("), epi.lastIndexOf(")") + 1);
+			
+			int c = Integer.parseInt(temp.charAt(1) + "");
 			String p = "";
 			for (int o = 0; o < c; o++)
 				p += "I";
 			String part = "Part " + p;
-			if (epi.charAt(epi.lastIndexOf("Part") - 2) == ',')
-				epi = epi.replace(epi.charAt(epi.lastIndexOf("Part") - 2), Character.MIN_VALUE);
-			epi = epi.replace("Part " + i, part);
+			epi = epi.replace(temp, part);
 			return generateCapsError(e, "Partnumber Error in " + e.getFileName(), temp, epi, ExceptionType.NONE);
 		}
 		return false;
@@ -376,6 +365,7 @@ public class ErrorSearchThread extends Observable implements Runnable {
 		}
 
 		if (index + 1 != eNR || e.getLocation() == null) {
+			System.out.println(index + " " + eNR +" "+ e.getLocation()+" "+ e.getEpisodeName());
 			if (eNR - index > 2)
 				return (generateError(e,
 						"Missing Episodes: " + e.getSeriesName() + " " + e.getSeasonNRasString() + "x"
@@ -383,7 +373,7 @@ public class ErrorSearchThread extends Observable implements Runnable {
 								+ add0((eNR - 1), e.getIsAnime())));
 
 			return (generateError(e, "Missing Episode: " + e.getSeriesName() + " " + e.getSeasonNRasString() + "x"
-					+ add0(index + 1, e.getIsAnime())));
+					+ add0(eNR, e.getIsAnime())));
 		}
 		return false;
 	}

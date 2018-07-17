@@ -3,7 +3,5 @@
 .avi
 .flv
 .m4v
-.mpg
 .divx
 .webm
-.vob

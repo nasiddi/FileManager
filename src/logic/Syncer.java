@@ -249,6 +249,7 @@ public class Syncer extends Thread {
 			if (copy.getName().substring(4, 5).matches("[0-9]"))
 				type = Type.ANIME;
 			episodeNR = Integer.parseInt(copy.getName().substring(2, (type.equals(Type.ANIME)) ? 5 : 4));
+
 		} catch (Exception e) {
 			return false;
 
@@ -261,6 +262,11 @@ public class Syncer extends Thread {
 		}
 
 		Episode e = show.getCurrentSeason().getEpisdoes().get(episodeNR);
+		
+		if (copy.getName().contains("=") & e.fileExists()) {
+			e.getLocation().delete();
+		}
+		
 		if (type.equals(Type.ANIME))
 			e.setAnime(true);
 		if (!e.getEpisodeName().equals("") || !show.getEpisodeNameNeeded()) {
@@ -310,7 +316,7 @@ public class Syncer extends Thread {
 		File f = new File(copy.getParent() + "/" + episode.getSeriesName() + " " + episode.getSeasonNRasString() + "x"
 				+ episode.getEpisodeNRasString() + copy.getName().substring(copy.getName().lastIndexOf(".")));
 		episodes.add(
-				new Episode(copy, episode.getSeriesName(), false, "", episode.getSeasonNR(), episode.getEpisodeNR()));
+				new Episode(copy, episode.getSeriesName(), false, "", episode.getSeasonNR(), episode.getEpisodeNR(), episode.getIsAnime()));
 		return f;
 	}
 
@@ -319,7 +325,7 @@ public class Syncer extends Thread {
 				+ copy.getName().substring(copy.getName().lastIndexOf('.')));
 		try {
 			episodes.add(new Episode(copy, episode.getSeriesName(), false, episode.getEpisodeName(),
-					episode.getSeasonNR(), episode.getEpisodeNR()));
+					episode.getSeasonNR(), episode.getEpisodeNR(), episode.getIsAnime()));
 		} catch (Exception e) {
 			return null;
 		}
@@ -345,7 +351,7 @@ public class Syncer extends Thread {
 				+ e2.substring(0, e2.indexOf('-') + 1) + epName + getExtention(copy));
 
 		episodes.add(new Episode(copy, episode.getSeriesName(), true, epName, episode.getSeasonNR(),
-				episode.getEpisodeNR()));
+				episode.getEpisodeNR(), episode.getIsAnime()));
 		return f;
 
 	}
@@ -432,7 +438,7 @@ public class Syncer extends Thread {
 
 	private void copySub(File copy, File f) {
 		Path copyFrom = null;
-		if (f != null)
+		if (copy != null)
 			copyFrom = Paths.get(copy.getPath());
 		else
 			copyFrom = Paths.get(f.getPath());

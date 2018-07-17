@@ -16,10 +16,10 @@ public class Constants {
 	public static final String TESTTREE = "assets/tree";
 	public static String SERIESDIR;
 	public static String ANIMEDIR;
-	public static final String LOCALDIR = "W:\\Sync";
-	public static final String PREPDIR = "W:\\complete";
+	public static String LOCALDIR = "L:\\Sync";
+	public static final String PREPDIR = "L:\\complete";
 	public static final String SUBDIR = "T:\\Subs\\";
-	public static final String VIDEODRIVE = "Z:\\";
+	public static final String VIDEODRIVE = "V:\\";
 	public static final String NULLEPISODE = "nullEpisode";
 	public static final Font BOXFONT = new Font("Open Sans", Font.PLAIN, 30);
 	public static final Font BIGFONT = new Font("Open Sans", Font.PLAIN, 48);
@@ -44,10 +44,11 @@ public class Constants {
     	if(false){
     		SERIESDIR = "assets/tree/Series";
     		ANIMEDIR = "assets/tree/Anime";
+    		LOCALDIR = "assets/tree/sync";
     		BACKGROUNDIMAGE = BACKGROUNDTEST;
     	}else{
-    		SERIESDIR = "Z:\\Series";
-    		ANIMEDIR = "Z:\\Anime";
+    		SERIESDIR = "V:\\Series";
+    		ANIMEDIR = "V:\\Anime";
     		BACKGROUNDIMAGE = BACKGROUNDSTD;
     	}
     	

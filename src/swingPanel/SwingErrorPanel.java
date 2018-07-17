@@ -5,6 +5,8 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.util.ArrayList;
 import java.util.Observable;
 
@@ -23,7 +25,7 @@ import logic.ErrorSearchThread;
 import model.Error;
 import panel.SwingPanel;
 
-public class SwingErrorPanel extends SwingPanel {
+public class SwingErrorPanel extends SwingPanel{
 
 	private BackgroundPanel container;
 	private JPanel statusPanel;
@@ -104,7 +106,40 @@ public class SwingErrorPanel extends SwingPanel {
 		buttonPanel.add(quit);
 		buttonPanel.add(add);
 		buttonPanel.add(exception);
-
+		
+		add.addKeyListener(new KeyListener() {
+			
+			@Override
+			public void keyTyped(KeyEvent e) {
+				switch(e.getKeyChar()){
+				case 'a':
+					add.doClick();
+					break;
+				case 'c':
+					cont.doClick();
+					break;
+				case 'e':
+					exception.doClick();
+					break;
+				case 'q':
+					quit.doClick();
+					break;
+				default:
+					break;
+				}
+				
+			}
+			
+			@Override
+			public void keyReleased(KeyEvent e) {
+				
+			}
+			
+			@Override
+			public void keyPressed(KeyEvent e) {
+				
+			}
+		});
 		
 		cont.addActionListener(e -> {
 			est.getError().setNewNames(before.getText(), current.getText(), after.getText());
@@ -252,9 +287,11 @@ public class SwingErrorPanel extends SwingPanel {
 				add.setEnabled(true);
 			case ERRORFOUND:
 				est = (ErrorSearchThread) o;
+				resetButtons();
 				updateErrorPanel();
 				container.revalidate();
 				container.repaint();
+				add.requestFocus();
 				break;
 
 			case CONTINUE:
